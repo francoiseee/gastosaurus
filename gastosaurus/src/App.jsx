@@ -18,8 +18,18 @@ function App() {
   <button>Start Saving</button>
 
   <div className = "bar">
-    <p>Smart Categorization</p>
+    <h1>Smart Categorization</h1>
     <p>Clarifies and gamifies money's categorization to expenses.</p>
+
+    <div>
+      <img></img>
+
+      <div>
+        <h1>Bill Reminder</h1>
+        <p></p>
+      </div>
+
+    </div>
   </div>
   </>
 

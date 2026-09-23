@@ -4,5 +4,10 @@ body{
 
 .bar{
   background: whitesmoke;
-  max-width: auto
+  width: auto;
+  height: 200px;
+  margin: 50px;
 }
+
+
+
