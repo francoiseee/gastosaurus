@@ -1,0 +1,158 @@
+:root {
+  --font-family: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  
+  /* Color Palette matching Gastosaurus screenshots */
+  --bg-main: #FFF4F4;
+  --bg-secondary: #FFF8F8;
+  --bg-card: #FFFFFF;
+  --bg-card-subtle: #FAFAFA;
+  
+  --text-primary: #1E2026;
+  --text-secondary: #5F6472;
+  --text-muted: #8E94A0;
+  --text-light: #A0A5B1;
+  
+  --brand-primary: #21252D;
+  --brand-primary-hover: #313642;
+  
+  --pink-badge-bg: #FFE8EE;
+  --pink-badge-color: #E2486E;
+  
+  --pill-bg-pink: #FDE8EE;
+  --pill-bg-pink-hover: #FCD6E0;
+  --pill-text-pink: #21252D;
+  
+  --purple-badge-bg: #F3E8FF;
+  --purple-badge-color: #7E57C2;
+  --purple-text: #533B6B;
+  
+  --red-badge-bg: #FDE8E8;
+  --red-badge-color: #D32F2F;
+  --red-text: #D32F2F;
+  
+  --peach-badge-bg: #FFF0E6;
+  --peach-badge-color: #E06D28;
+  
+  --blue-badge-bg: #EEF2FF;
+  --blue-badge-color: #4F46E5;
+  
+  --mascot-circle-bg: #D4B6C8;
+  --bank-illustration-color: #F1CED7;
+  
+  --container-pattern-bg: linear-gradient(rgba(255, 255, 255, 0.60), rgba(255, 255, 255, 0.60)), url('./assets/container-background.png');
+  --container-pattern-bg-subtle: linear-gradient(rgba(255, 255, 255, 0.60), rgba(255, 255, 255, 0.60)), url('./assets/container-background.png');
+  
+  --border-light: rgba(235, 210, 218, 0.6);
+  --border-card: rgba(240, 220, 226, 0.7);
+  --border-subtle: #F3ECEE;
+  
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.03);
+  --shadow-card: 0 10px 30px -4px rgba(60, 30, 40, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+  --shadow-card-hover: 0 16px 36px -4px rgba(60, 30, 40, 0.09), 0 4px 12px -1px rgba(0, 0, 0, 0.04);
+  --shadow-float: 0 20px 40px -8px rgba(33, 37, 45, 0.12);
+  
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 26px;
+  --radius-full: 9999px;
+  
+  --transition-fast: 0.18s ease;
+  --transition-normal: 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  font-family: var(--font-family);
+  background-color: var(--bg-main);
+  color: var(--text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  background: transparent;
+  transition: all var(--transition-fast);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+  user-select: none;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes floatMascot {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes pulseNotification {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(226, 72, 110, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 6px rgba(226, 72, 110, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(226, 72, 110, 0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s var(--transition-normal) forwards;
+}
+
+.animate-float {
+  animation: floatMascot 4s ease-in-out infinite;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-main);
+}
+::-webkit-scrollbar-thumb {
+  background: #E5CBD2;
+  border-radius: var(--radius-full);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #D4B6C0;
+}
