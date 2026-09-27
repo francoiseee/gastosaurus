@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, Handshake } from './CustomIcons';
+import { Check, Handshake, ChevronDown } from './CustomIcons';
 
 export const SettleUpModal = ({ isOpen, onClose, onConfirmSettle }) => {
   const [selectedPerson, setSelectedPerson] = useState('Miguel Tan (Apartment 4B - ₱45.00)');
@@ -44,18 +44,23 @@ export const SettleUpModal = ({ isOpen, onClose, onConfirmSettle }) => {
           <form onSubmit={handleSettleSubmit} className="modal-form">
             <div className="form-group">
               <label>Select Person & Balance</label>
-              <select 
-                value={selectedPerson} 
-                onChange={(e) => {
-                  setSelectedPerson(e.target.value);
-                  if (e.target.value.includes('45.00')) setAmount('45.00');
-                  else if (e.target.value.includes('80.50')) setAmount('80.50');
-                }}
-                className="form-select"
-              >
-                <option value="Miguel Tan (Apartment 4B - ₱45.00)">Miguel Tan — Apartment 4B (₱45.00)</option>
-                <option value="Pamela Cruz (Work Cafe BGC - ₱80.50)">Pamela Cruz — Work Cafe BGC (₱80.50)</option>
-              </select>
+              <div className="custom-select-wrapper">
+                <select 
+                  value={selectedPerson} 
+                  onChange={(e) => {
+                    setSelectedPerson(e.target.value);
+                    if (e.target.value.includes('45.00')) setAmount('45.00');
+                    else if (e.target.value.includes('80.50')) setAmount('80.50');
+                  }}
+                  className="form-select custom-select-input"
+                >
+                  <option value="Miguel Tan (Apartment 4B - ₱45.00)">Miguel Tan — Apartment 4B (₱45.00)</option>
+                  <option value="Pamela Cruz (Work Cafe BGC - ₱80.50)">Pamela Cruz — Work Cafe BGC (₱80.50)</option>
+                </select>
+                <div className="custom-select-arrow" aria-hidden="true">
+                  <ChevronDown size={18} strokeWidth={2.2} />
+                </div>
+              </div>
             </div>
 
             <div className="form-group">

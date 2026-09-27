@@ -36,7 +36,17 @@ import {
   Wallet,
   Trash2,
   TrendingUp,
-  UserCheck
+  UserCheck,
+  ChevronDown,
+  Link2,
+  Copy,
+  ClipboardCheck,
+  Delete,
+  Wine,
+  Utensils,
+  GripVertical,
+  Inbox,
+  CheckCircle2
 } from 'lucide-react';
 
 // Custom Bowling Ball Icon matching screenshot
@@ -110,5 +120,15 @@ export {
   ReceiptText,
   Trash2,
   TrendingUp,
-  UserCheck
+  UserCheck,
+  ChevronDown,
+  Link2,
+  Copy,
+  ClipboardCheck,
+  Delete,
+  Wine,
+  Utensils,
+  GripVertical,
+  Inbox,
+  CheckCircle2
 };

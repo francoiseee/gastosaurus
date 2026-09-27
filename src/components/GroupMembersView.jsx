@@ -15,6 +15,7 @@ import {
   Sparkles,
   Users
 } from './CustomIcons';
+import LeaveGroupModal from './LeaveGroupModal';
 
 export const GroupMembersView = ({ 
   group, 
@@ -24,34 +25,39 @@ export const GroupMembersView = ({
   onAddExpense, 
   onLeaveGroup, 
   onInviteMember, 
+  onNavigateInviteMember,
   onResendInvite, 
   onCancelInvite,
+  onOpenNotifications,
   notifications = [],
   unreadCount = 1
 }) => {
-  const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
   const [isExpensesDetailOpen, setIsExpensesDetailOpen] = useState(false);
-  const [inviteName, setInviteName] = useState('');
-  const [inviteEmail, setInviteEmail] = useState('');
   const [resendStatus, setResendStatus] = useState({});
 
   if (!group) return null;
 
   const members = group.members || [];
   const pendingInvites = group.pendingInvites || [];
+  const overallExpense = group.totalExpense || group.totalSpending || 485.50;
+  const noteText = group.note || '“Birthday dinner for Mike! Such a great time, everyone’s share includes the automatic 20% gratuity.”';
 
-  const handleSendInvite = (e) => {
-    e.preventDefault();
-    if (!inviteEmail.trim()) return;
-    if (onInviteMember) {
-      onInviteMember(group.id, {
-        name: inviteName.trim() || inviteEmail.split('@')[0],
-        email: inviteEmail.trim()
-      });
+  const handleOpenInvite = () => {
+    if (onNavigateInviteMember) {
+      onNavigateInviteMember();
     }
-    setInviteName('');
-    setInviteEmail('');
-    setIsInviteModalOpen(false);
+  };
+
+  const handleOpenLeaveModal = () => {
+    setIsLeaveModalOpen(true);
+  };
+
+  const handleConfirmLeave = () => {
+    setIsLeaveModalOpen(false);
+    if (onLeaveGroup) {
+      onLeaveGroup(group.id);
+    }
   };
 
   const handleResend = (inviteId, email) => {
@@ -64,15 +70,6 @@ export const GroupMembersView = ({
     }, 2500);
   };
 
-  const handleLeave = () => {
-    if (window.confirm(`Are you sure you want to leave "${group.name}"?`)) {
-      if (onLeaveGroup) {
-        onLeaveGroup(group.id);
-      }
-      onBack();
-    }
-  };
-
   return (
     <div className="group-members-page-container animate-fade-in">
       {/* Top GastoFriends Header Bar */}
@@ -82,14 +79,20 @@ export const GroupMembersView = ({
           onClick={onBack}
           aria-label="Back to groups"
           title="Back to Active Groups"
+          id="btn-back-to-groups"
         >
           <ArrowLeft size={20} color="#1E2026" strokeWidth={2.2} />
         </button>
 
-        <h2 className="gastofriends-title">GastoFriends</h2>
+        <h2 className="gastofriends-title">GastoSaurus</h2>
 
         <div className="gastofriends-actions">
-          <button className="header-notif-btn" aria-label="Notifications">
+          <button 
+            className="header-notif-btn" 
+            onClick={onOpenNotifications} 
+            aria-label="Notifications"
+            id="btn-members-notif"
+          >
             <Bell size={20} color="#1E2026" />
             {unreadCount > 0 && <span className="header-notif-dot" />}
           </button>
@@ -98,6 +101,94 @@ export const GroupMembersView = ({
 
       {/* Main Page Area */}
       <div className="members-view-content">
+        {/* Top Ambagan Tracker & Split Breakdown (Screenshot 1) */}
+        <div className="ambagan-tracker-section">
+          {/* Left Col: Total Amount & Note Card */}
+          <div className="ambagan-left-card-box">
+            <div className="ambagan-total-box">
+              <span className="ambagan-total-label">TOTAL AMOUNT</span>
+              <h1 className="ambagan-total-amount">
+                ₱{Number(overallExpense).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </h1>
+            </div>
+
+            <div className="ambagan-note-card">
+              <h3 className="ambagan-note-title">Note</h3>
+              <p className="ambagan-note-body">{noteText}</p>
+            </div>
+          </div>
+
+          {/* Right Col: Split Breakdown Donut Card */}
+          <div className="ambagan-breakdown-card">
+            <div className="breakdown-card-header">
+              <span className="breakdown-card-title">SPLIT BREAKDOWN</span>
+            </div>
+
+            <div className="breakdown-chart-wrapper">
+              <div className="donut-chart-box">
+                <svg className="donut-svg" viewBox="0 0 160 160">
+                  {/* Background Ring Track */}
+                  <circle
+                    cx="80"
+                    cy="80"
+                    r="56"
+                    className="donut-bg-ring"
+                  />
+                  {/* Segment 1: Sarah 40% (#1E2026) -> 40% of 351.86 is 140.74 */}
+                  <circle
+                    cx="80"
+                    cy="80"
+                    r="56"
+                    className="donut-segment segment-sarah"
+                    strokeDasharray="140.74 211.12"
+                    strokeDashoffset="0"
+                  />
+                  {/* Segment 2: Mike 35% (#6B4F75) -> 35% of 351.86 is 123.15 */}
+                  <circle
+                    cx="80"
+                    cy="80"
+                    r="56"
+                    className="donut-segment segment-mike"
+                    strokeDasharray="123.15 228.71"
+                    strokeDashoffset="-140.74"
+                  />
+                  {/* Segment 3: Alex 25% (#C48CCF) -> 25% of 351.86 is 87.96 */}
+                  <circle
+                    cx="80"
+                    cy="80"
+                    r="56"
+                    className="donut-segment segment-alex"
+                    strokeDasharray="87.96 263.90"
+                    strokeDashoffset="-263.89"
+                  />
+                </svg>
+
+                {/* Center Counter */}
+                <div className="donut-center-info">
+                  <span className="donut-count">3</span>
+                  <span className="donut-label">Members</span>
+                </div>
+              </div>
+
+              {/* Breakdown Legend Row */}
+              <div className="breakdown-legend-row">
+                <div className="legend-item">
+                  <span className="legend-bullet bullet-sarah" />
+                  <span className="legend-text">Sarah (40%)</span>
+                </div>
+                <div className="legend-item">
+                  <span className="legend-bullet bullet-mike" />
+                  <span className="legend-text">Mike (35%)</span>
+                </div>
+                <div className="legend-item">
+                  <span className="legend-bullet bullet-alex" />
+                  <span className="legend-text">Alex (25%)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Page Title & Top Actions Row */}
         <div className="members-page-header">
           <div className="members-header-text">
@@ -110,29 +201,33 @@ export const GroupMembersView = ({
             <button 
               className="btn-outline-pill"
               onClick={onViewSettlements}
+              id="btn-desktop-view-settlements"
             >
               <CreditCard size={16} /> View Settlements
             </button>
             <button 
               className="btn-outline-pill"
-              onClick={() => setIsInviteModalOpen(true)}
+              onClick={handleOpenInvite}
+              id="btn-desktop-invite-member"
             >
               <UserPlus size={16} /> Invite Member
             </button>
             <button 
               className="btn-danger-pill"
-              onClick={handleLeave}
+              onClick={handleOpenLeaveModal}
+              id="btn-desktop-leave-group"
             >
               <LogOut size={16} /> Leave Group
             </button>
           </div>
         </div>
 
-        {/* Mobile Top Actions Stack (Matching Screenshot 5) */}
+        {/* Mobile Top Actions Stack (Matching Screenshot 2 & 5) */}
         <div className="members-mobile-actions-stack mobile-only">
           <button 
             className="btn-mobile-action-card"
-            onClick={() => setIsInviteModalOpen(true)}
+            onClick={handleOpenInvite}
+            id="btn-mobile-invite-member"
           >
             Invite Member
           </button>
@@ -147,12 +242,14 @@ export const GroupMembersView = ({
             <button 
               className="btn-mobile-action-pill"
               onClick={onViewSettlements}
+              id="btn-mobile-view-settlements"
             >
               <CreditCard size={16} /> View Settlements
             </button>
             <button 
               className="btn-mobile-action-pill danger"
-              onClick={handleLeave}
+              onClick={handleOpenLeaveModal}
+              id="btn-mobile-leave-group"
             >
               <LogOut size={16} /> Leave Group
             </button>
@@ -248,7 +345,7 @@ export const GroupMembersView = ({
           ))}
         </div>
 
-        {/* Desktop Bottom Action Dock (Matching Screenshot 4) */}
+        {/* Desktop Bottom Action Dock */}
         <div className="desktop-bottom-actions-dock desktop-only">
           <button 
             className="btn-expenses-detail-dock"
@@ -260,86 +357,33 @@ export const GroupMembersView = ({
           <button 
             className="btn-add-expenses-dock"
             onClick={onAddExpense}
+            id="btn-desktop-add-expenses"
           >
             Add Expenses
           </button>
         </div>
 
-        {/* Mobile Bottom Fixed Action (Matching Screenshot 5) */}
+        {/* Mobile Bottom Fixed Action */}
         <div className="mobile-bottom-dock mobile-only">
           <button 
             className="btn-mobile-add-expenses"
             onClick={onAddExpense}
+            id="btn-mobile-add-expenses"
           >
             Add Expenses
           </button>
         </div>
       </div>
 
-      {/* Invite Member Modal */}
-      {isInviteModalOpen && (
-        <div className="modal-backdrop" onClick={() => setIsInviteModalOpen(false)}>
-          <div className="modal-card animate-fade-in" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="modal-title-box">
-                <div className="modal-icon-badge">
-                  <UserPlus size={20} color="#E2486E" />
-                </div>
-                <div>
-                  <h3>Invite to {group.name}</h3>
-                  <span className="modal-sub">Send an email invite to collaborate on expenses.</span>
-                </div>
-              </div>
-              <button className="modal-close-btn" onClick={() => setIsInviteModalOpen(false)}>✕</button>
-            </div>
+      {/* Leave Group Modal (Matching Screenshots 1 & 2) */}
+      <LeaveGroupModal
+        isOpen={isLeaveModalOpen}
+        onClose={() => setIsLeaveModalOpen(false)}
+        onConfirm={handleConfirmLeave}
+        groupName={group.name}
+      />
 
-            <form onSubmit={handleSendInvite}>
-              <div className="form-group">
-                <label>Friend's Name (Optional)</label>
-                <input 
-                  type="text"
-                  placeholder="e.g. Chris Wong"
-                  value={inviteName}
-                  onChange={(e) => setInviteName(e.target.value)}
-                  className="form-input"
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Email Address <span className="required-star">*</span></label>
-                <input 
-                  type="email"
-                  placeholder="e.g. chris.w@example.com"
-                  value={inviteEmail}
-                  onChange={(e) => setInviteEmail(e.target.value)}
-                  className="form-input"
-                  required
-                  autoFocus
-                />
-              </div>
-
-              <div className="modal-actions">
-                <button 
-                  type="button" 
-                  className="btn-secondary" 
-                  onClick={() => setIsInviteModalOpen(false)}
-                >
-                  Cancel
-                </button>
-                <button 
-                  type="submit" 
-                  className="btn-primary-action"
-                  disabled={!inviteEmail.trim()}
-                >
-                  Send Invite
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Expenses Detail Modal (Matching Reference Breakdown) */}
+      {/* Expenses Detail Modal */}
       {isExpensesDetailOpen && (
         <div className="modal-backdrop" onClick={() => setIsExpensesDetailOpen(false)}>
           <div className="expenses-breakdown-modal-card animate-fade-in" onClick={(e) => e.stopPropagation()}>

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import GroupIcon from './GroupIcon';
 import { GROUP_ICONS, ICON_SETS } from '../data/groupIcons';
-import { Users, Plus, Check, Search, Sparkles } from './CustomIcons';
+import { Users, Plus, Check, Search, Sparkles, ChevronDown } from './CustomIcons';
 
 const COLOR_THEMES = [
   { name: 'Soft Pink', bg: '#FFEBEF', color: '#D94668' },
@@ -36,6 +36,7 @@ const SUGGESTIONS = [
 
 export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated }) => {
   const [name, setName] = useState('');
+  const [note, setNote] = useState('');
   const [category, setCategory] = useState('Travel & Trips');
   const [selectedIconId, setSelectedIconId] = useState('set1_2_3'); // default: flight
   const [selectedTheme, setSelectedTheme] = useState(COLOR_THEMES[0]);
@@ -79,15 +80,24 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated }) => {
     const newGroup = {
       id: `group-${Date.now()}`,
       name: name.trim(),
+      note: note.trim() || '“Birthday dinner for Mike! Such a great time, everyone’s share includes the automatic 20% gratuity.”',
       membersCount: members.length,
       balance: 0.00,
+      totalExpense: 485.50,
+      totalSpending: 485.50,
       iconId: selectedIconId,
       iconBg: selectedTheme.bg,
       iconColor: selectedTheme.color,
       category: category,
       recentExpense: 'Group created',
       members: members.map((m, idx) => ({
+        id: `member-${Date.now()}-${idx}`,
         name: m,
+        role: idx === 0 ? 'Admin' : 'Member',
+        email: `${m.toLowerCase().replace(/[^a-z0-9]/g, '')}@example.com`,
+        spentAmount: idx === 0 ? 194.20 : (idx === 1 ? 169.90 : 121.40),
+        joinedDate: 'Just now',
+        isCurrentUser: idx === 0,
         owes: 0.00,
         avatar: idx === 0 ? '🦖' : ['👨‍💻', '👩‍🎨', '🧑‍🍳', '🏄‍♂️', '📸', '🎧', '🍜'][idx % 7]
       }))
@@ -96,6 +106,8 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated }) => {
     if (onGroupCreated) {
       onGroupCreated(newGroup);
     }
+    setName('');
+    setNote('');
     onClose();
   };
 
@@ -159,20 +171,41 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated }) => {
                 </div>
               </div>
 
+              {/* Group Notes / Description */}
+              <div className="form-group">
+                <label className="form-label" htmlFor="group-note-input">
+                  Notes
+                </label>
+                <textarea
+                  id="group-note-input"
+                  rows={2}
+                  placeholder="e.g. Birthday dinner for Mike! Such a great time, everyone's share includes the automatic 20% gratuity."
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  className="form-input group-note-textarea"
+                />
+              </div>
+
               {/* Category */}
               <div className="form-group">
-                <label className="form-label">Category</label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="form-select"
-                >
-                  {CATEGORIES.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </select>
+                <label className="form-label" htmlFor="create-group-category-select">Category</label>
+                <div className="custom-select-wrapper">
+                  <select
+                    id="create-group-category-select"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="form-select custom-select-input"
+                  >
+                    {CATEGORIES.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="custom-select-arrow" aria-hidden="true">
+                    <ChevronDown size={18} strokeWidth={2.2} />
+                  </div>
+                </div>
               </div>
 
               {/* Theme Color Selector */}

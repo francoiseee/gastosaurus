@@ -6,6 +6,11 @@ import GroupsView from './components/GroupsView';
 import GroupMembersView from './components/GroupMembersView';
 import ExpensesDetailView from './components/ExpensesDetailView';
 import SettlementsView from './components/SettlementsView';
+import InviteMemberView from './components/InviteMemberView';
+import PaymentView from './components/PaymentView';
+import AddExpenseCalculatorView from './components/AddExpenseCalculatorView';
+import ItemizedAmbaganView from './components/ItemizedAmbaganView';
+import NotificationsView from './components/NotificationsView';
 import SettleUpModal from './components/SettleUpModal';
 import PersonalBalanceModal from './components/PersonalBalanceModal';
 import GroupDetailModal from './components/GroupDetailModal';
@@ -16,8 +21,9 @@ import { mockUserData, mockGroups, mockSettlements, mockNotifications } from './
 import './App.css';
 
 function App() {
-  // Current view: 'landing' | 'dashboard' | 'groups' | 'settlements' | 'group-members'
+  // Current view: 'landing' | 'dashboard' | 'groups' | 'settlements' | 'payment' | 'group-members' | 'invite-member' | 'expenses-detail' | 'notifications'
   const [currentView, setCurrentView] = useState('landing');
+  const [previousView, setPreviousView] = useState('dashboard');
   
   // App state
   const [userData, setUserData] = useState(mockUserData);
@@ -25,6 +31,7 @@ function App() {
   const [settlements, setSettlements] = useState(mockSettlements);
   const [notifications, setNotifications] = useState(mockNotifications);
   const [selectedGroup, setSelectedGroup] = useState(mockGroups[0]);
+  const [customPaymentItems, setCustomPaymentItems] = useState(null);
 
   // Modals state
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -91,9 +98,12 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // Handler for creating a new active group
+  const [currentExpenseData, setCurrentExpenseData] = useState(null);
+
+  // Handler for creating a new active group -> Opens Build Your Squad (Invite Member) view
   const handleGroupCreated = (newGroup) => {
     setGroups(prev => [newGroup, ...prev]);
+    setSelectedGroup(newGroup);
     
     // Push notification
     setNotifications(prev => [
@@ -107,8 +117,49 @@ function App() {
       ...prev
     ]);
 
-    // Open the new group's members view
-    handleOpenGroupMembers(newGroup);
+    // Navigate to Build Your Squad (Screenshot 1)
+    setCurrentView('invite-member');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Handler for opening the Add Expense Calculator view (Screenshot 2)
+  const handleOpenAddExpenseCalculator = (initialItem = null) => {
+    setCurrentExpenseData(initialItem || { amount: 145.00, itemName: 'Yabu Dinner' });
+    setCurrentView('add-expense-calculator');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Handler for continuing from Calculator to Itemized Split (Screenshot 3)
+  const handleContinueToItemSplit = (calcData) => {
+    setCurrentExpenseData(calcData);
+    setCurrentView('item-split');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Handler for completing Itemized Split
+  const handleFinishItemSplit = ({ title, totalAmount, buckets }) => {
+    setUserData(prev => ({
+      ...prev,
+      youOwe: prev.youOwe + 45.00
+    }));
+
+    setNotifications(prev => [
+      {
+        id: `notif-${Date.now()}`,
+        title: `Itemized ambagan "${title}" added — Total ₱${totalAmount.toFixed(2)} 🎉`,
+        time: 'Just now',
+        read: false,
+        type: 'expense'
+      },
+      ...prev
+    ]);
+
+    if (selectedGroup) {
+      setCurrentView('group-members');
+    } else {
+      setCurrentView('dashboard');
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // Handler for inviting a member to a group
@@ -242,6 +293,36 @@ function App() {
     ]);
   };
 
+  // Handler for navigating to Payment / Settle Balances Page
+  const handleNavigateToPayment = (customItems = null) => {
+    setCustomPaymentItems(customItems);
+    setCurrentView('payment');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Handler for completing payment from PaymentView
+  const handleConfirmPaymentFromView = ({ selectedIds, totalAmount, paymentMethod }) => {
+    setUserData(prev => ({
+      ...prev,
+      youOwe: Math.max(0, prev.youOwe - totalAmount),
+      netBalance: prev.netBalance + totalAmount
+    }));
+
+    setNotifications(prev => [
+      {
+        id: `notif-${Date.now()}`,
+        title: `Settled ₱${Number(totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2 })} via ${paymentMethod} 🎉`,
+        time: 'Just now',
+        read: false,
+        type: 'payment'
+      },
+      ...prev
+    ]);
+
+    setCurrentView('settlements');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleSettleItemFromView = (settlementId) => {
     setSettlements(prev => 
       prev.map(s => s.id === settlementId ? { ...s, status: 'Completed' } : s)
@@ -261,11 +342,24 @@ function App() {
     ]);
   };
 
+  const handleOpenNotifications = () => {
+    setPreviousView(currentView);
+    setCurrentView('notifications');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   return (
     <div className="app-container">
       {/* If in app views (dashboard, groups, settlements), render full navbar.
-          Note: GroupMembersView & ExpensesDetailView have their own specialized headers */}
-      {currentView !== 'landing' && currentView !== 'group-members' && currentView !== 'expenses-detail' && (
+          Note: GroupMembersView, InviteMemberView, ExpensesDetailView, PaymentView, AddExpenseCalculatorView, ItemizedAmbaganView & NotificationsView have their own specialized headers */}
+      {currentView !== 'landing' && 
+       currentView !== 'group-members' && 
+       currentView !== 'invite-member' && 
+       currentView !== 'expenses-detail' && 
+       currentView !== 'payment' && 
+       currentView !== 'add-expense-calculator' && 
+       currentView !== 'item-split' && 
+       currentView !== 'notifications' && (
         <Navbar
           currentTab={currentView}
           onSelectTab={handleTabSelect}
@@ -289,12 +383,12 @@ function App() {
           <Dashboard
             userData={userData}
             groups={groups}
-            onSettleUpClick={() => setIsSettleUpOpen(true)}
+            onSettleUpClick={() => handleNavigateToPayment()}
             onPersonalBalanceClick={() => setIsPersonalBalanceOpen(true)}
             onViewGroupClick={(group) => handleOpenGroupMembers(group)}
             onViewAllGroups={() => setCurrentView('groups')}
             onCreateGroupClick={() => setIsCreateGroupOpen(true)}
-            onAddAmbaganClick={() => setIsAddExpenseOpen(true)}
+            onAddAmbaganClick={() => handleOpenAddExpenseCalculator()}
           />
         )}
 
@@ -315,11 +409,86 @@ function App() {
               setCurrentView('expenses-detail');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
-            onAddExpense={() => setIsAddExpenseOpen(true)}
+            onAddExpense={() => handleOpenAddExpenseCalculator()}
             onLeaveGroup={handleLeaveGroup}
             onInviteMember={handleInviteMember}
+            onNavigateInviteMember={() => {
+              setCurrentView('invite-member');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
             onResendInvite={handleResendInvite}
             onCancelInvite={handleCancelInvite}
+            onOpenNotifications={handleOpenNotifications}
+            notifications={notifications}
+            unreadCount={notifications.filter(n => !n.read).length}
+          />
+        )}
+
+        {currentView === 'notifications' && (
+          <NotificationsView
+            notifications={notifications}
+            onBack={() => {
+              setCurrentView(previousView || 'dashboard');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          />
+        )}
+
+        {currentView === 'invite-member' && (
+          <InviteMemberView
+            group={selectedGroup}
+            onBack={() => {
+              if (selectedGroup) {
+                setCurrentView('group-members');
+              } else {
+                setCurrentView('groups');
+              }
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onContinue={() => {
+              if (selectedGroup) {
+                setCurrentView('group-members');
+              } else {
+                setCurrentView('dashboard');
+              }
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onInviteMember={handleInviteMember}
+            notifications={notifications}
+            unreadCount={notifications.filter(n => !n.read).length}
+          />
+        )}
+
+        {currentView === 'add-expense-calculator' && (
+          <AddExpenseCalculatorView
+            group={selectedGroup}
+            onBack={() => {
+              if (selectedGroup) {
+                setCurrentView('group-members');
+              } else {
+                setCurrentView('dashboard');
+              }
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onContinue={handleContinueToItemSplit}
+            notifications={notifications}
+            unreadCount={notifications.filter(n => !n.read).length}
+          />
+        )}
+
+        {currentView === 'item-split' && (
+          <ItemizedAmbaganView
+            expenseData={currentExpenseData}
+            group={selectedGroup}
+            onBack={() => {
+              setCurrentView('add-expense-calculator');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onCompleteSplit={handleFinishItemSplit}
+            onNavigateAddExpense={() => {
+              setCurrentView('add-expense-calculator');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
             notifications={notifications}
             unreadCount={notifications.filter(n => !n.read).length}
           />
@@ -332,7 +501,7 @@ function App() {
               setCurrentView('group-members');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
-            onAddExpense={() => setIsAddExpenseOpen(true)}
+            onAddExpense={() => handleOpenAddExpenseCalculator()}
             onViewSettlements={() => {
               setCurrentView('settlements');
               window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -350,6 +519,41 @@ function App() {
           <SettlementsView
             settlements={settlements}
             onSettleItem={handleSettleItemFromView}
+            onViewGroupMembers={() => {
+              if (selectedGroup) {
+                setCurrentView('group-members');
+              } else {
+                setCurrentView('groups');
+              }
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onSettleAllDebts={handleNavigateToPayment}
+            onNavigatePayment={handleNavigateToPayment}
+            onSendReminders={() => {
+              setNotifications(prev => [
+                {
+                  id: `notif-${Date.now()}`,
+                  title: 'Payment reminders sent to group members with pending balances! 📬',
+                  time: 'Just now',
+                  read: false,
+                  type: 'settlement'
+                },
+                ...prev
+              ]);
+            }}
+          />
+        )}
+
+        {currentView === 'payment' && (
+          <PaymentView
+            initialOwedItems={customPaymentItems}
+            onBack={() => {
+              setCurrentView('settlements');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+            onConfirmSettle={handleConfirmPaymentFromView}
+            notifications={notifications}
+            unreadCount={notifications.filter(n => !n.read).length}
           />
         )}
       </main>

@@ -18,20 +18,6 @@ export const LandingPage = ({ onStartSaving, onOpenAuth, onOpenDashboard }) => {
         <div className="landing-brand">
           <span className="brand-logo-text">Gastosaurus.</span>
         </div>
-        <div className="landing-header-actions">
-          <button 
-            className="landing-login-btn"
-            onClick={() => onOpenAuth ? onOpenAuth('login') : onStartSaving()}
-          >
-            Log In
-          </button>
-          <button 
-            className="landing-quick-nav-btn"
-            onClick={onOpenDashboard}
-          >
-            Go to App <ArrowRight size={15} />
-          </button>
-        </div>
       </header>
 
       {/* Hero Section */}
