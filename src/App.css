@@ -2178,6 +2178,21 @@
   margin-bottom: 14px;
 }
 
+.auth-spam-hint {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+  background-color: #FDF2F5;
+  border: 1px solid #F8DCE3;
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin: -4px 0 18px;
+}
+
+.auth-spam-hint strong {
+  color: var(--text-primary);
+}
+
 .auth-loading-bar {
   width: 160px;
   height: 6px;
