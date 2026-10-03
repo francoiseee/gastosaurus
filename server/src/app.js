@@ -4,6 +4,11 @@ import helmet from 'helmet';
 import cors from 'cors';
 import { env } from './config/env.js';
 import { profileRouter } from './modules/profile/profile.routes.js';
+import { meBalancesRouter } from './modules/balances/balances.routes.js';
+import { groupsRouter } from './modules/groups/groups.routes.js';
+import { invitesRouter } from './modules/invites/invites.routes.js';
+import { expensesRouter } from './modules/expenses/expenses.routes.js';
+import { settlementsRouter } from './modules/settlements/settlements.routes.js';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler.js';
 
 export function createApp() {
@@ -17,12 +22,13 @@ export function createApp() {
 
   app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
-  app.use('/api/me', profileRouter);
-  // Next phases (see docs/ARCHITECTURE.md):
-  // app.use('/api/groups', groupsRouter);
-  // app.use('/api/groups/:groupId/expenses', expensesRouter);
-  // app.use('/api/groups/:groupId/settlements', settlementsRouter);
-  // app.use('/api/notifications', notificationsRouter);
+  app.use('/api/me', profileRouter); // GET/PATCH /api/me
+  app.use('/api/me', meBalancesRouter); // /api/me/summary, /api/me/settle-up
+  app.use('/api/groups', groupsRouter); // groups, members, invites, + nested expenses/balances/settlements
+  app.use('/api/invites', invitesRouter);
+  app.use('/api/expenses', expensesRouter);
+  app.use('/api/settlements', settlementsRouter);
+  // Next (Phase 5, see docs/ARCHITECTURE.md): app.use('/api/notifications', notificationsRouter);
 
   app.use('/api', notFoundHandler);
   app.use(errorHandler);

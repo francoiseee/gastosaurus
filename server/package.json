@@ -11,7 +11,7 @@
   "scripts": {
     "dev": "node --watch --env-file=.env src/server.js",
     "start": "node src/server.js",
-    "test": "node --env-file=.env.test --test \"test/**/*.test.js\""
+    "test": "node --env-file=.env.test --test --test-concurrency=1 \"test/**/*.test.js\""
   },
   "dependencies": {
     "cors": "^2.8.6",

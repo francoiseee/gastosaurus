@@ -1,99 +1,19 @@
-// Integration tests for the API, using:
-//   • a LOCAL throwaway Postgres with a tiny stand-in for Supabase's auth schema
-//     plus our real migrations from ../supabase/migrations
-//   • a fake Supabase Auth server that publishes a JWKS and signs tokens
+// Integration tests for /api/me (Phase 1). Setup lives in helpers/harness.js:
+// a LOCAL throwaway Postgres + a fake Supabase Auth server.
 //
 //   cp .env.test.example .env.test     # then: createdb gastosaurus_test
 //   npm test
-import { test, before, after } from 'node:test';
+import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import http from 'node:http';
-import { readdir, readFile } from 'node:fs/promises';
-import { exportJWK, generateKeyPair, SignJWT } from 'jose';
-import { pool } from '../src/db/pool.js';
-import { createApp } from '../src/app.js';
+import { generateKeyPair, SignJWT } from 'jose';
+import { useHarness, ISSUER } from './helpers/harness.js';
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const ISSUER = `${SUPABASE_URL}/auth/v1`;
-const migrationsDir = new URL('../../supabase/migrations/', import.meta.url);
-
-let api;
-let apiServer;
-let fakeAuth;
-let privateKey;
-const hsTokens = new Map(); // token -> user, for the HS256 (legacy secret) path
-
-async function signToken(sub, { email, name, expiresIn = '1h', issuer = ISSUER } = {}) {
-  return new SignJWT({ email, role: 'authenticated', user_metadata: { name } })
-    .setProtectedHeader({ alg: 'ES256', kid: 'test-key' })
-    .setSubject(sub)
-    .setIssuer(issuer)
-    .setAudience('authenticated')
-    .setIssuedAt()
-    .setExpirationTime(expiresIn)
-    .sign(privateKey);
-}
-
-async function createAuthUser(email, name) {
-  const { rows } = await pool.query(
-    `INSERT INTO auth.users (email, raw_user_meta_data) VALUES ($1, $2) RETURNING id`,
-    [email, JSON.stringify(name ? { name } : {})],
-  );
-  return rows[0].id;
-}
-
-async function call(method, path, { token, body } = {}) {
-  const res = await fetch(api + path, {
-    method,
-    headers: {
-      ...(token && { Authorization: `Bearer ${token}` }),
-      ...(body && { 'Content-Type': 'application/json' }),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  return { status: res.status, body: await res.json().catch(() => null) };
-}
-
-before(async () => {
-  if (!/test/i.test(new URL(process.env.DATABASE_URL).pathname)) {
-    throw new Error('Refusing to run: the DATABASE_URL database name must contain "test" (tests wipe it).');
-  }
-
-  // Fresh schema: auth stub + every migration, in order
-  await pool.query('DROP SCHEMA IF EXISTS auth CASCADE; DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
-  await pool.query(await readFile(new URL('./fixtures/supabase-auth-stub.sql', import.meta.url), 'utf8'));
-  for (const file of (await readdir(migrationsDir)).filter((f) => f.endsWith('.sql')).sort()) {
-    await pool.query(await readFile(new URL(file, migrationsDir), 'utf8'));
-  }
-
-  // Fake Supabase Auth
-  const keys = await generateKeyPair('ES256');
-  privateKey = keys.privateKey;
-  const publicJwk = { ...(await exportJWK(keys.publicKey)), kid: 'test-key', alg: 'ES256', use: 'sig' };
-  fakeAuth = http
-    .createServer((req, res) => {
-      if (req.url === '/auth/v1/.well-known/jwks.json') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify({ keys: [publicJwk] }));
-      }
-      if (req.url === '/auth/v1/user') {
-        const user = hsTokens.get((req.headers.authorization ?? '').replace('Bearer ', ''));
-        res.writeHead(user ? 200 : 401, { 'Content-Type': 'application/json' });
-        return res.end(JSON.stringify(user ?? { msg: 'invalid JWT' }));
-      }
-      res.writeHead(404).end();
-    })
-    .listen(Number(new URL(SUPABASE_URL).port));
-
-  apiServer = createApp().listen(0);
-  api = `http://localhost:${apiServer.address().port}/api`;
-});
-
-after(async () => {
-  apiServer?.close();
-  fakeAuth?.close();
-  await pool.end();
-});
+const h = useHarness();
+const { pool } = h;
+const createAuthUser = (...a) => h.createAuthUser(...a);
+const signToken = (...a) => h.signToken(...a);
+const call = (...a) => h.call(...a);
+const hsTokens = h.hsTokens;
 
 test('sign-up trigger creates a profile with the name from sign-up metadata', async () => {
   const id = await createAuthUser('francoise@example.com', '  Francoise  ');
