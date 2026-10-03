@@ -8,7 +8,9 @@ export const Navbar = ({
   onNavigateHome, 
   notifications = [],
   unreadCount = 2,
-  onOpenNotifs
+  onOpenNotifs,
+  userName,
+  onLogout
 }) => {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
 
@@ -56,6 +58,16 @@ export const Navbar = ({
 
         {/* Right Actions: Notifications & Switch View */}
         <div className="navbar-actions">
+          {onLogout && (
+            <button
+              type="button"
+              className="navbar-logout-btn"
+              onClick={onLogout}
+              title={userName ? `Logged in as ${userName}` : 'Log out'}
+            >
+              Log out
+            </button>
+          )}
           <div className="notif-dropdown-wrapper">
             <button 
               className={`notif-btn ${unreadCount > 0 ? 'has-unread' : ''}`}

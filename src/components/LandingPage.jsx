@@ -10,7 +10,7 @@ import {
   LogIn
 } from './CustomIcons';
 
-export const LandingPage = ({ onStartSaving, onOpenAuth, onOpenDashboard }) => {
+export const LandingPage = ({ onStartSaving, onOpenAuth, onOpenDashboard, isLoggedIn = false }) => {
   return (
     <div className="landing-page-container">
       {/* Top Header / Brand */}
@@ -18,6 +18,13 @@ export const LandingPage = ({ onStartSaving, onOpenAuth, onOpenDashboard }) => {
         <div className="landing-brand">
           <span className="brand-logo-text">Gastosaurus.</span>
         </div>
+        <button
+          type="button"
+          className="landing-login-btn"
+          onClick={() => (isLoggedIn ? onOpenDashboard?.() : onOpenAuth?.('login'))}
+        >
+          {isLoggedIn ? 'Go to Dashboard' : 'Log In'}
+        </button>
       </header>
 
       {/* Hero Section */}
