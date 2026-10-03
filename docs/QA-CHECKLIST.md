@@ -56,16 +56,8 @@ Start both servers first: `cd server && npm run dev`, then `npm run dev` at the 
 
 ---
 
-## Files that are safe to delete
+## Cleanup status
 
-Nothing imports these any more. After deleting them, `npm run lint` at the root is clean.
+The old mock data (`src/data/mockData.js`) and the unused components (`AddExpenseModal`, `SettleUpModal`, `BankIllustration`) have been deleted, along with their styles in `src/App.css`. `npm run lint` is clean.
 
-| File | Why it's unused |
-|---|---|
-| `src/data/mockData.js` | All screens load real data from the API |
-| `src/components/AddExpenseModal.jsx` | Replaced by the calculator → item split flow |
-| `src/components/SettleUpModal.jsx` | Replaced by Settlements → Payment |
-| `src/components/BankIllustration.jsx` | Was never used |
-| `assets/` (repo root) | Original art files. The app uses the copies in `src/assets/`. Check with the designer before removing. |
-
-Their styles in `src/App.css` (classes such as `.add-expense-modal-card` and `.payment-method-selector`) can be removed later. They do nothing without the components.
+Still to decide: the root `assets/` folder holds the original art files. The app uses the copies in `src/assets/`, so it can go once the designer is fine with that.

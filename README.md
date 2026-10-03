@@ -46,6 +46,6 @@ npm run dev                       # App → http://localhost:5173
 | 5. Notifications, reminders, live updates | ✅ |
 | 6. Deploy | next |
 
-Every screen runs on real data. Before a release, go through **[docs/QA-CHECKLIST.md](docs/QA-CHECKLIST.md)**. It also lists the old mock-data files that are safe to delete.
+Every screen runs on real data. Before a release, go through **[docs/QA-CHECKLIST.md](docs/QA-CHECKLIST.md)**.
 
 How the splitting works, in plain language: **[docs/HOW-THE-MONEY-WORKS.md](docs/HOW-THE-MONEY-WORKS.md)**.
