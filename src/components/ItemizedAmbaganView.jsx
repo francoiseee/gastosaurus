@@ -1,490 +1,205 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  ArrowLeft, 
-  ArrowRight, 
-  Bell, 
-  Plus, 
-  Check, 
-  CheckCircle2, 
-  Utensils, 
-  Wine, 
-  GripVertical, 
-  Inbox, 
-  X,
-  Sparkles,
-  Users
-} from './CustomIcons';
+import { useState } from 'react';
+import { ArrowLeft, ArrowRight, Bell, Plus, Check, CheckCircle2, Utensils, GripVertical, Inbox, X, Users, ChevronDown } from './CustomIcons';
+import Avatar from './Avatar';
+import { expensesApi } from '../lib/api';
+import { peso, todayISO } from '../lib/format';
 
+/**
+ * Step 2 of adding an expense: drag each item onto the people who had it.
+ *
+ * Everything here edits `draft.items` — each item has the member ids who
+ * shared it. An item on one person is theirs alone; an item on several people
+ * is split between them. "Continue" saves the expense: one item becomes an
+ * equal split, several become an itemized split (the server does the exact
+ * centavo math).
+ *
+ *   draft: { groupId, members, items: [{ id, name, price, memberIds }], description, paidBy }
+ */
 export const ItemizedAmbaganView = ({
-  expenseData = null,
-  group = null,
+  draft,
+  onDraftChange,
   onBack,
-  onCompleteSplit,
   onNavigateAddExpense,
-  notifications = [],
-  unreadCount = 1
+  onSaved,
+  onOpenNotifications,
+  unreadCount = 0,
 }) => {
-  const expenseTitle = expenseData?.itemName || 'Yabu Dinner';
-
-  // Unassigned items list (matching Screenshot 3)
-  const [unassignedItems, setUnassignedItems] = useState([
-    {
-      id: 'unassigned-1',
-      name: 'Wagyu Tacos',
-      category: 'Appetizer',
-      categoryIcon: 'appetizer',
-      price: 32.00
-    },
-    {
-      id: 'unassigned-2',
-      name: 'Sake Carafe',
-      category: 'Drinks',
-      categoryIcon: 'drinks',
-      price: 25.00
-    },
-    {
-      id: 'unassigned-3',
-      name: 'Black Cod Miso',
-      category: 'Main',
-      categoryIcon: 'main',
-      price: 45.00
-    }
-  ]);
-
-  // Member buckets (matching Screenshot 3: Sarah has items, Mike has drop container)
-  const [memberBuckets, setMemberBuckets] = useState([
-    {
-      id: 'bucket-sarah',
-      name: 'Sarah',
-      avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80',
-      avatarEmoji: '🐱',
-      avatarBg: '#FFE8EE',
-      assignedItems: [
-        { id: 'sarah-item-1', name: 'Spicy Tuna Roll', price: 18.00 },
-        { id: 'sarah-item-2', name: 'Matcha Mochi', price: 27.00 }
-      ]
-    },
-    {
-      id: 'bucket-mike',
-      name: 'Mike',
-      avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=120&auto=format&fit=crop&q=80',
-      avatarEmoji: 'M',
-      avatarBg: '#6B4075',
-      assignedItems: []
-    }
-  ]);
-
   const [toastMessage, setToastMessage] = useState(null);
-  const [lastProcessedExpenseKey, setLastProcessedExpenseKey] = useState(null);
-
-  // Drag and Drop State
-  const [draggedItemData, setDraggedItemData] = useState(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [draggedItemData, setDraggedItemData] = useState(null); // { itemId, sourceBucketId }
   const [dragOverTargetId, setDragOverTargetId] = useState(null);
+  const [activeReassignMenu, setActiveReassignMenu] = useState(null); // { bucketId, itemId }
+  const [splitModal, setSplitModal] = useState(null); // { itemId, memberIds }
 
-  // Reassign Quick Menu State: { bucketId, itemId } or null
-  const [activeReassignMenu, setActiveReassignMenu] = useState(null);
+  const { items, members } = draft;
+  const me = members.find((m) => m.isCurrentUser);
+  const paidBy = draft.paidBy ?? me?.id ?? members[0]?.id;
+  const nameOf = Object.fromEntries(members.map((m) => [m.id, m.isCurrentUser ? 'You' : m.name]));
 
-  // Split Modal State
-  const [isSplitModalOpen, setIsSplitModalOpen] = useState(false);
-  const [selectedSplitBucketId, setSelectedSplitBucketId] = useState('bucket-sarah');
-  const [selectedSplitItemId, setSelectedSplitItemId] = useState('');
-  const [selectedSplitMemberIds, setSelectedSplitMemberIds] = useState([]);
+  const flash = (message) => {
+    setToastMessage(message);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
 
-  // Integrate expenseData from Calculator when user assigned who bought it
-  useEffect(() => {
-    if (!expenseData || !expenseData.amount) return;
-
-    const expenseKey = `${expenseData.itemName}-${expenseData.amount}-${(expenseData.selectedMembers || []).map(m => m.name).join(',')}`;
-    if (expenseKey === lastProcessedExpenseKey) return;
-    setLastProcessedExpenseKey(expenseKey);
-
-    const amount = Number(expenseData.amount) || 0;
-    const itemName = expenseData.itemName || 'New Expense Item';
-    const selectedMems = expenseData.selectedMembers || [];
-
-    if (selectedMems.length === 1) {
-      // Single person assigned
-      const assignedPersonName = selectedMems[0].name.toLowerCase();
-      setMemberBuckets(prev => prev.map(bucket => {
-        if (bucket.name.toLowerCase().includes(assignedPersonName) || assignedPersonName.includes(bucket.name.toLowerCase())) {
-          return {
-            ...bucket,
-            assignedItems: [
-              ...bucket.assignedItems,
-              { id: `calc-item-${Date.now()}`, name: itemName, price: amount }
-            ]
-          };
-        }
-        return bucket;
-      }));
-      setToastMessage(`Assigned "${itemName}" (₱${amount.toFixed(2)}) to ${selectedMems[0].name}! ✨`);
-      setTimeout(() => setToastMessage(null), 3000);
-    } else if (selectedMems.length > 1) {
-      // Multiple people assigned -> Split evenly among them
-      const splitEach = amount / selectedMems.length;
-      const memNames = selectedMems.map(m => m.name.toLowerCase());
-
-      setMemberBuckets(prev => prev.map(bucket => {
-        const isSelected = memNames.some(mName => bucket.name.toLowerCase().includes(mName) || mName.includes(bucket.name.toLowerCase()));
-        if (isSelected) {
-          return {
-            ...bucket,
-            assignedItems: [
-              ...bucket.assignedItems,
-              { id: `calc-split-${Date.now()}-${bucket.id}`, name: `${itemName} (Split)`, price: splitEach }
-            ]
-          };
-        }
-        return bucket;
-      }));
-      setToastMessage(`Split "${itemName}" (₱${splitEach.toFixed(2)} each) across selected members! 🤝`);
-      setTimeout(() => setToastMessage(null), 3000);
-    } else {
-      // Unassigned
-      setUnassignedItems(prev => [
-        ...prev,
-        {
-          id: `unassigned-${Date.now()}`,
-          name: itemName,
-          category: 'Main',
-          categoryIcon: 'main',
-          price: amount
-        }
-      ]);
-    }
-  }, [expenseData]);
-
-  // Calculate dynamic totals
-  const totalAssignedAmount = memberBuckets.reduce((sum, bucket) => {
-    return sum + bucket.assignedItems.reduce((bSum, item) => bSum + Number(item.price), 0);
-  }, 0);
-
-  const totalUnassignedAmount = unassignedItems.reduce((sum, item) => sum + Number(item.price), 0);
-  const overallTotal = totalAssignedAmount + totalUnassignedAmount;
-  const remainingAmount = Math.max(0, overallTotal - totalAssignedAmount);
+  // ─── Derived view of the draft ──────────────────────────────────────────
+  const unassignedItems = items.filter((i) => i.memberIds.length === 0);
+  const buckets = members.map((m) => ({
+    ...m,
+    assignedItems: items
+      .filter((i) => i.memberIds.includes(m.id))
+      .map((i) => ({
+        id: i.id,
+        name: i.memberIds.length > 1 ? `${i.name} (÷${i.memberIds.length})` : i.name,
+        price: i.price / i.memberIds.length,
+      })),
+  }));
+  const overallTotal = items.reduce((sum, i) => sum + i.price, 0);
+  const totalAssignedAmount = items.filter((i) => i.memberIds.length).reduce((sum, i) => sum + i.price, 0);
+  const remainingAmount = overallTotal - totalAssignedAmount;
   const assignedPercentage = overallTotal > 0 ? (totalAssignedAmount / overallTotal) * 100 : 0;
 
-  // Drag Handlers
-  const handleDragStart = (e, item, sourceBucketId = null) => {
-    const payload = { item, sourceBucketId };
+  // ─── Editing the draft ──────────────────────────────────────────────────
+  const update = (changes) => onDraftChange((d) => ({ ...d, ...changes }));
+  const setItemMembers = (itemId, memberIds) =>
+    onDraftChange((d) => ({ ...d, items: d.items.map((i) => (i.id === itemId ? { ...i, memberIds } : i)) }));
+  const itemById = (id) => items.find((i) => i.id === id);
+
+  /** Move an item from one person (or the unassigned pool) to another person. */
+  const moveItem = (itemId, sourceBucketId, targetBucketId) => {
+    const item = itemById(itemId);
+    if (!item || sourceBucketId === targetBucketId) return;
+    const others = item.memberIds.filter((id) => id !== sourceBucketId && id !== targetBucketId);
+    setItemMembers(itemId, sourceBucketId ? [...others, targetBucketId] : [targetBucketId]);
+    flash(`Assigned "${item.name}" to ${nameOf[targetBucketId]}! ✨`);
+  };
+
+  /** Take one person off an item (back to the pool if nobody is left). */
+  const handleUnassignItem = (bucketId, itemId) => {
+    const item = itemById(itemId);
+    if (item) setItemMembers(itemId, item.memberIds.filter((id) => id !== bucketId));
+  };
+
+  const handleRemoveItem = (itemId) =>
+    onDraftChange((d) => ({ ...d, items: d.items.filter((i) => i.id !== itemId) }));
+
+  // ─── Drag & drop ────────────────────────────────────────────────────────
+  const handleDragStart = (e, itemId, sourceBucketId = null) => {
+    const payload = { itemId, sourceBucketId };
     setDraggedItemData(payload);
     try {
       e.dataTransfer.setData('application/json', JSON.stringify(payload));
-      e.dataTransfer.setData('text/plain', item.name);
       e.dataTransfer.effectAllowed = 'move';
-    } catch (err) {}
+    } catch {
+      /* some browsers block dataTransfer; state above is enough */
+    }
   };
 
-  const handleDragEnd = () => {
+  const readDrag = (e) => {
+    if (draggedItemData) return draggedItemData;
+    try {
+      return JSON.parse(e.dataTransfer.getData('application/json'));
+    } catch {
+      return null;
+    }
+  };
+
+  const endDrag = () => {
     setDraggedItemData(null);
     setDragOverTargetId(null);
   };
 
   const handleDragOver = (e, targetId) => {
     e.preventDefault();
-    try {
-      e.dataTransfer.dropEffect = 'move';
-    } catch (err) {}
-    if (dragOverTargetId !== targetId) {
-      setDragOverTargetId(targetId);
-    }
+    if (dragOverTargetId !== targetId) setDragOverTargetId(targetId);
   };
 
   const handleDragLeave = (e, targetId) => {
     e.preventDefault();
-    if (dragOverTargetId === targetId) {
-      setDragOverTargetId(null);
-    }
+    if (dragOverTargetId === targetId) setDragOverTargetId(null);
   };
 
-  // Drop on Member Bucket
   const handleDropOnBucket = (e, targetBucketId) => {
     e.preventDefault();
-    setDragOverTargetId(null);
-
-    let data = draggedItemData;
-    if (!data) {
-      try {
-        const jsonStr = e.dataTransfer.getData('application/json');
-        if (jsonStr) data = JSON.parse(jsonStr);
-      } catch (err) {}
-    }
-
-    if (!data || !data.item) {
-      setDraggedItemData(null);
-      return;
-    }
-
-    const { item, sourceBucketId } = data;
-
-    if (sourceBucketId === targetBucketId) {
-      setDraggedItemData(null);
-      return;
-    }
-
-    if (!sourceBucketId) {
-      // From Unassigned to Bucket
-      setUnassignedItems(prev => prev.filter(i => i.id !== item.id));
-      setMemberBuckets(prev => prev.map(bucket => {
-        if (bucket.id === targetBucketId) {
-          return {
-            ...bucket,
-            assignedItems: [
-              ...bucket.assignedItems,
-              { id: `assigned-${Date.now()}-${item.id}`, name: item.name, price: item.price }
-            ]
-          };
-        }
-        return bucket;
-      }));
-    } else {
-      // From one Bucket to another Bucket
-      setMemberBuckets(prev => prev.map(bucket => {
-        if (bucket.id === sourceBucketId) {
-          return {
-            ...bucket,
-            assignedItems: bucket.assignedItems.filter(i => i.id !== item.id)
-          };
-        }
-        if (bucket.id === targetBucketId) {
-          return {
-            ...bucket,
-            assignedItems: [
-              ...bucket.assignedItems,
-              { id: `moved-${Date.now()}-${item.id}`, name: item.name, price: item.price }
-            ]
-          };
-        }
-        return bucket;
-      }));
-    }
-
-    const targetName = memberBuckets.find(b => b.id === targetBucketId)?.name || 'member';
-    setToastMessage(`Assigned "${item.name}" to ${targetName}! ✨`);
-    setTimeout(() => setToastMessage(null), 2500);
-    setDraggedItemData(null);
+    const data = readDrag(e);
+    if (data?.itemId) moveItem(data.itemId, data.sourceBucketId, targetBucketId);
+    endDrag();
   };
 
-  // Drop back to Unassigned Items pool
   const handleDropOnUnassigned = (e) => {
     e.preventDefault();
-    setDragOverTargetId(null);
-
-    let data = draggedItemData;
-    if (!data) {
-      try {
-        const jsonStr = e.dataTransfer.getData('application/json');
-        if (jsonStr) data = JSON.parse(jsonStr);
-      } catch (err) {}
-    }
-
-    if (!data || !data.item || !data.sourceBucketId) {
-      setDraggedItemData(null);
-      return;
-    }
-
-    handleUnassignItem(data.sourceBucketId, data.item.id);
-    setDraggedItemData(null);
+    const data = readDrag(e);
+    if (data?.itemId && data.sourceBucketId) handleUnassignItem(data.sourceBucketId, data.itemId);
+    endDrag();
   };
 
-  // Quick Assign from Unassigned
-  const handleAssignItem = (item, targetBucketId) => {
-    setUnassignedItems(prev => prev.filter(i => i.id !== item.id));
-    setMemberBuckets(prev => prev.map(bucket => {
-      if (bucket.id === targetBucketId) {
-        return {
-          ...bucket,
-          assignedItems: [...bucket.assignedItems, { id: `assigned-${Date.now()}-${item.id}`, name: item.name, price: item.price }]
-        };
-      }
-      return bucket;
-    }));
-
-    const targetName = memberBuckets.find(b => b.id === targetBucketId)?.name || 'member';
-    setToastMessage(`Assigned "${item.name}" to ${targetName}! ✨`);
-    setTimeout(() => setToastMessage(null), 2500);
+  // ─── Split modal: share one item between several people ─────────────────
+  const openSplitModal = (bucketId) => {
+    const first = buckets.find((b) => b.id === bucketId)?.assignedItems[0];
+    if (first) setSplitModal({ itemId: first.id, memberIds: members.map((m) => m.id) });
   };
 
-  // Reassign / Move an assigned item from one person to another person directly
-  const handleReassignItemToPerson = (sourceBucketId, itemId, targetBucketId) => {
-    setActiveReassignMenu(null);
-    const sourceBucket = memberBuckets.find(b => b.id === sourceBucketId);
-    const item = sourceBucket?.assignedItems.find(i => i.id === itemId);
-    if (!item) return;
-
-    if (targetBucketId === 'unassigned') {
-      handleUnassignItem(sourceBucketId, itemId);
-      return;
-    }
-
-    if (sourceBucketId === targetBucketId) return;
-
-    setMemberBuckets(prev => prev.map(b => {
-      if (b.id === sourceBucketId) {
-        return {
-          ...b,
-          assignedItems: b.assignedItems.filter(i => i.id !== itemId)
-        };
-      }
-      if (b.id === targetBucketId) {
-        return {
-          ...b,
-          assignedItems: [...b.assignedItems, { id: `reassigned-${Date.now()}-${item.id}`, name: item.name, price: item.price }]
-        };
-      }
-      return b;
-    }));
-
-    const targetName = memberBuckets.find(b => b.id === targetBucketId)?.name || 'member';
-    setToastMessage(`Moved "${item.name}" to ${targetName}! ⇄`);
-    setTimeout(() => setToastMessage(null), 2500);
-  };
-
-  // Unassign an item back to pool
-  const handleUnassignItem = (bucketId, itemId) => {
-    const bucket = memberBuckets.find(b => b.id === bucketId);
-    const item = bucket?.assignedItems.find(i => i.id === itemId);
-    if (!item) return;
-
-    setMemberBuckets(prev => prev.map(b => {
-      if (b.id === bucketId) {
-        return {
-          ...b,
-          assignedItems: b.assignedItems.filter(i => i.id !== itemId)
-        };
-      }
-      return b;
-    }));
-
-    setUnassignedItems(prev => [
-      ...prev,
-      {
-        id: `unassigned-${Date.now()}`,
-        name: item.name,
-        category: 'Shared',
-        categoryIcon: 'main',
-        price: item.price
-      }
-    ]);
-  };
-
-  // Open Split Item dialog
-  const handleOpenSplitModal = (bucketId) => {
-    setSelectedSplitBucketId(bucketId);
-    const bucket = memberBuckets.find(b => b.id === bucketId);
-    if (bucket && bucket.assignedItems.length > 0) {
-      setSelectedSplitItemId(bucket.assignedItems[0].id);
-    }
-    // Default select all member buckets for split
-    setSelectedSplitMemberIds(memberBuckets.map(b => b.id));
-    setIsSplitModalOpen(true);
-  };
-
-  // Toggle member selection in split modal
-  const handleToggleSplitMember = (bId) => {
-    setSelectedSplitMemberIds(prev => {
-      if (prev.includes(bId)) {
-        if (prev.length <= 1) return prev; // Keep at least one
-        return prev.filter(id => id !== bId);
-      }
-      return [...prev, bId];
+  const toggleSplitMember = (memberId) =>
+    setSplitModal((m) => {
+      const has = m.memberIds.includes(memberId);
+      if (has && m.memberIds.length <= 1) return m; // keep at least one
+      return { ...m, memberIds: has ? m.memberIds.filter((id) => id !== memberId) : [...m.memberIds, memberId] };
     });
+
+  const confirmSplit = () => {
+    const item = itemById(splitModal.itemId);
+    setItemMembers(splitModal.itemId, splitModal.memberIds);
+    flash(`Split "${item.name}" (${peso(item.price / splitModal.memberIds.length)} each) across ${splitModal.memberIds.length} people! 🤝`);
+    setSplitModal(null);
   };
 
-  // Execute Split of selected item among chosen members
-  const handleExecuteSplitItem = () => {
-    const sourceBucket = memberBuckets.find(b => b.id === selectedSplitBucketId);
-    if (!sourceBucket) {
-      setIsSplitModalOpen(false);
-      return;
+  // ─── Save ───────────────────────────────────────────────────────────────
+  const handleSave = async () => {
+    if (!items.length) return flash('Add at least one item first.');
+    if (unassignedItems.length) return flash(`Assign ${unassignedItems.length === 1 ? '"' + unassignedItems[0].name + '"' : 'every item'} to someone first.`);
+    const description = (draft.description || items[0].name).trim();
+    if (!description) return flash('Give this expense a name.');
+
+    const common = { description, paidBy, spentOn: todayISO() };
+    const body =
+      items.length === 1
+        ? { ...common, splitType: 'equal', totalAmount: items[0].price, memberIds: items[0].memberIds }
+        : {
+            ...common,
+            splitType: 'itemized',
+            items: items.map(({ name, price, memberIds }) => ({ name, price, memberIds })),
+          };
+
+    setIsSaving(true);
+    try {
+      const expense = await expensesApi.create(draft.groupId, body);
+      onSaved(expense);
+    } catch (err) {
+      setIsSaving(false);
+      flash(Object.values(err.fields || {})[0] || err.message);
     }
-
-    const itemToSplit = sourceBucket.assignedItems.find(i => i.id === selectedSplitItemId) || sourceBucket.assignedItems[0];
-    if (!itemToSplit) {
-      setIsSplitModalOpen(false);
-      return;
-    }
-
-    const splitCount = selectedSplitMemberIds.length;
-    if (splitCount === 0) return;
-
-    const splitPrice = itemToSplit.price / splitCount;
-
-    setMemberBuckets(prev => prev.map(b => {
-      // Remove original item from source bucket
-      let newItems = b.id === selectedSplitBucketId 
-        ? b.assignedItems.filter(i => i.id !== itemToSplit.id)
-        : [...b.assignedItems];
-
-      // If this bucket is in the split recipients, add split share
-      if (selectedSplitMemberIds.includes(b.id)) {
-        newItems.push({
-          id: `split-share-${Date.now()}-${b.id}`,
-          name: `${itemToSplit.name} (Split)`,
-          price: splitPrice
-        });
-      }
-
-      return {
-        ...b,
-        assignedItems: newItems
-      };
-    }));
-
-    setIsSplitModalOpen(false);
-    setToastMessage(`Split "${itemToSplit.name}" (₱${splitPrice.toFixed(2)} each) across ${splitCount} members! 🤝`);
-    setTimeout(() => setToastMessage(null), 3000);
+    return undefined;
   };
 
-  // Handler for Add Item button -> Redirect to Calculator / Add Expense page
-  const handleAddItemClick = () => {
-    if (onNavigateAddExpense) {
-      onNavigateAddExpense();
-    } else if (onBack) {
-      onBack();
-    }
-  };
-
-  // Complete split flow
-  const handleFinishContinue = () => {
-    if (onCompleteSplit) {
-      onCompleteSplit({
-        title: expenseTitle,
-        totalAmount: overallTotal,
-        assignedTotal: totalAssignedAmount,
-        buckets: memberBuckets
-      });
-    } else if (onBack) {
-      onBack();
-    }
-  };
+  const splitItem = splitModal && itemById(splitModal.itemId);
 
   return (
     <div className="item-split-page-container animate-fade-in" onClick={() => setActiveReassignMenu(null)}>
-      {/* Top Header Bar */}
       <header className="item-split-header-bar">
-        <button 
-          className="btn-header-back" 
-          onClick={onBack}
-          aria-label="Back to calculator"
-          id="btn-back-to-calculator"
-        >
+        <button className="btn-header-back" onClick={onBack} aria-label="Back to calculator" id="btn-back-to-calculator">
           <ArrowLeft size={20} color="#1E2026" strokeWidth={2.2} />
         </button>
 
         <h2 className="item-split-header-title">Item Split</h2>
 
         <div className="item-split-header-actions">
-          <button className="header-notif-btn" aria-label="Notifications">
+          <button className="header-notif-btn" aria-label="Notifications" onClick={onOpenNotifications}>
             <Bell size={20} color="#1E2026" />
             {unreadCount > 0 && <span className="header-notif-dot" />}
           </button>
         </div>
       </header>
 
-      {/* Main Content Area */}
       <div className="item-split-content-wrapper">
-        {/* Toast Alert */}
         {toastMessage && (
           <div className="item-split-toast-banner animate-fade-in">
             <CheckCircle2 size={18} color="#7C4DFF" />
@@ -492,50 +207,73 @@ export const ItemizedAmbaganView = ({
           </div>
         )}
 
-        {/* Title & Total Subtitle */}
         <div className="item-split-page-header">
           <h1 className="item-split-main-title">Itemized Ambagan</h1>
           <p className="item-split-main-subtitle">
-            {expenseTitle} • Total: ₱{overallTotal.toFixed(2)}
+            {draft.description || 'New expense'} • Total: {peso(overallTotal)}
           </p>
+
+          {/* Expense name and who paid */}
+          <div className="item-split-meta-row">
+            <input
+              className="form-input"
+              value={draft.description}
+              onChange={(e) => update({ description: e.target.value })}
+              placeholder="Expense name, e.g. Yabu Dinner"
+              maxLength={120}
+              aria-label="Expense name"
+            />
+            <div className="custom-select-wrapper">
+              <select
+                className="form-select custom-select-input"
+                value={paidBy ?? ''}
+                onChange={(e) => update({ paidBy: e.target.value })}
+                aria-label="Paid by"
+              >
+                {members.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    Paid by {m.isCurrentUser ? 'you' : m.name}
+                  </option>
+                ))}
+              </select>
+              <div className="custom-select-arrow" aria-hidden="true">
+                <ChevronDown size={18} strokeWidth={2.2} />
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Allocation Progress Bar */}
         <div className="split-progress-section">
           <div className="split-progress-bar-track">
-            <div 
-              className="split-progress-bar-fill" 
-              style={{ width: `${Math.min(100, assignedPercentage)}%` }}
-            />
+            <div className="split-progress-bar-fill" style={{ width: `${Math.min(100, assignedPercentage)}%` }} />
           </div>
           <div className="split-progress-labels-row">
-            <span className="label-assigned">₱{totalAssignedAmount.toFixed(2)} Assigned</span>
-            <span className="label-remaining">₱{remainingAmount.toFixed(2)} Remaining</span>
+            <span className="label-assigned">{peso(totalAssignedAmount)} Assigned</span>
+            <span className="label-remaining">{peso(remainingAmount)} Remaining</span>
           </div>
         </div>
 
-        {/* Main Grid: Left Unassigned Items & Right Member Buckets */}
         <div className="split-main-grid">
-          {/* Left Column: Unassigned Items */}
+          {/* Unassigned items */}
           <div className="unassigned-items-col">
             <div className="unassigned-strip-header">
               <span className="unassigned-strip-title">Unassigned Items</span>
             </div>
 
-            <div 
+            <div
               className={`unassigned-cards-list ${dragOverTargetId === 'unassigned' ? 'drag-over-active' : ''}`}
               onDragOver={(e) => handleDragOver(e, 'unassigned')}
               onDragLeave={(e) => handleDragLeave(e, 'unassigned')}
-              onDrop={(e) => handleDropOnUnassigned(e)}
+              onDrop={handleDropOnUnassigned}
             >
               {unassignedItems.map((item) => (
-                <div 
-                  key={item.id} 
-                  className={`unassigned-item-card ${draggedItemData?.item?.id === item.id ? 'is-dragging' : ''}`}
-                  draggable={true}
-                  onDragStart={(e) => handleDragStart(e, item, null)}
-                  onDragEnd={handleDragEnd}
-                  title="Drag and drop onto a member, or use the quick assign buttons"
+                <div
+                  key={item.id}
+                  className={`unassigned-item-card ${draggedItemData?.itemId === item.id ? 'is-dragging' : ''}`}
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, item.id, null)}
+                  onDragEnd={endDrag}
+                  title="Drag onto a person, or use the quick assign buttons"
                 >
                   <div className="unassigned-item-info">
                     <div className="unassigned-title-row">
@@ -543,30 +281,33 @@ export const ItemizedAmbaganView = ({
                       <h3 className="unassigned-item-name">{item.name}</h3>
                     </div>
                     <div className="unassigned-item-category">
-                      {item.categoryIcon === 'drinks' ? (
-                        <Wine size={13} color="#7E8492" />
-                      ) : (
-                        <Utensils size={13} color="#7E8492" />
-                      )}
-                      <span>{item.category}</span>
+                      <Utensils size={13} color="#7E8492" />
+                      <span>Needs an owner</span>
                     </div>
                   </div>
 
                   <div className="unassigned-item-right">
-                    <span className="unassigned-item-price">₱{item.price.toFixed(2)}</span>
-                    {/* Quick Assign Buttons */}
+                    <span className="unassigned-item-price">{peso(item.price)}</span>
                     <div className="quick-assign-buttons">
-                      {memberBuckets.map((bucket) => (
+                      {members.map((m) => (
                         <button
-                          key={bucket.id}
+                          key={m.id}
                           type="button"
                           className="btn-quick-assign-member"
-                          onClick={() => handleAssignItem(item, bucket.id)}
-                          title={`Assign to ${bucket.name}`}
+                          onClick={() => moveItem(item.id, null, m.id)}
+                          title={`Assign to ${nameOf[m.id]}`}
                         >
-                          +{bucket.name.charAt(0)}
+                          +{nameOf[m.id].charAt(0)}
                         </button>
                       ))}
+                      <button
+                        type="button"
+                        className="btn-remove-assigned-item"
+                        onClick={() => handleRemoveItem(item.id)}
+                        title="Remove this item"
+                      >
+                        <X size={13} />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -575,17 +316,16 @@ export const ItemizedAmbaganView = ({
               {unassignedItems.length === 0 && (
                 <div className="unassigned-empty-box">
                   <CheckCircle2 size={24} color="#059669" />
-                  <span>All items have been assigned! 🎉</span>
+                  <span>{items.length ? 'All items have been assigned! 🎉' : 'No items yet.'}</span>
                 </div>
               )}
 
-              {/* + Add Item Button -> Redirects to Add Expense Calculator */}
-              <button 
-                type="button" 
+              <button
+                type="button"
                 className="btn-add-unassigned-item"
-                onClick={handleAddItemClick}
+                onClick={onNavigateAddExpense}
                 id="btn-open-add-item-calc"
-                title="Add an expense with calculator and assign to squad members"
+                title="Add another item with the calculator"
               >
                 <Plus size={16} strokeWidth={2.4} />
                 <span>Add Item</span>
@@ -593,32 +333,19 @@ export const ItemizedAmbaganView = ({
             </div>
           </div>
 
-          {/* Right Columns: Member Buckets */}
+          {/* One bucket per member */}
           <div className="member-buckets-col">
             <div className="member-buckets-grid">
-              {memberBuckets.map((bucket) => (
-                <div 
-                  key={bucket.id} 
-                  className={`member-bucket-card ${dragOverTargetId === bucket.id ? 'bucket-drag-hover' : ''}`}
-                >
-                  {/* Bucket Header */}
+              {buckets.map((bucket) => (
+                <div key={bucket.id} className={`member-bucket-card ${dragOverTargetId === bucket.id ? 'bucket-drag-hover' : ''}`}>
                   <div className="bucket-card-header">
                     <div className="bucket-avatar-wrapper">
-                      {bucket.avatarEmoji === 'M' ? (
-                        <div className="bucket-letter-avatar">{bucket.avatarEmoji}</div>
-                      ) : (
-                        <img 
-                          src={bucket.avatarUrl} 
-                          alt={bucket.name} 
-                          className="bucket-avatar-img" 
-                        />
-                      )}
+                      <Avatar person={bucket} className="bucket-avatar-img" />
                     </div>
-                    <h3 className="bucket-member-name">{bucket.name}</h3>
+                    <h3 className="bucket-member-name">{nameOf[bucket.id]}</h3>
                   </div>
 
-                  {/* Bucket Dropzone / Assigned List */}
-                  <div 
+                  <div
                     className={`bucket-items-dropzone ${dragOverTargetId === bucket.id ? 'drag-over-active' : ''}`}
                     onDragOver={(e) => handleDragOver(e, bucket.id)}
                     onDragLeave={(e) => handleDragLeave(e, bucket.id)}
@@ -627,12 +354,12 @@ export const ItemizedAmbaganView = ({
                     {bucket.assignedItems.map((assigned) => {
                       const isMenuOpen = activeReassignMenu?.bucketId === bucket.id && activeReassignMenu?.itemId === assigned.id;
                       return (
-                        <div 
-                          key={assigned.id} 
-                          className={`bucket-assigned-item-row ${draggedItemData?.item?.id === assigned.id ? 'is-dragging' : ''}`}
-                          draggable={true}
-                          onDragStart={(e) => handleDragStart(e, assigned, bucket.id)}
-                          onDragEnd={handleDragEnd}
+                        <div
+                          key={assigned.id}
+                          className={`bucket-assigned-item-row ${draggedItemData?.itemId === assigned.id ? 'is-dragging' : ''}`}
+                          draggable
+                          onDragStart={(e) => handleDragStart(e, assigned.id, bucket.id)}
+                          onDragEnd={endDrag}
                           title="Drag to move to another person, or use the reassign menu"
                         >
                           <div className="assigned-item-left">
@@ -641,9 +368,8 @@ export const ItemizedAmbaganView = ({
                           </div>
 
                           <div className="assigned-item-right">
-                            <span className="assigned-item-amount">₱{Number(assigned.price).toFixed(2)}</span>
-                            
-                            {/* Reassign / Move action button */}
+                            <span className="assigned-item-amount">{peso(assigned.price)}</span>
+
                             <div className="reassign-btn-wrapper" onClick={(e) => e.stopPropagation()}>
                               <button
                                 type="button"
@@ -654,26 +380,31 @@ export const ItemizedAmbaganView = ({
                                 ⇄
                               </button>
 
-                              {/* Reassign Dropdown Menu */}
                               {isMenuOpen && (
                                 <div className="reassign-dropdown-menu animate-fade-in">
                                   <span className="reassign-menu-title">Reassign to:</span>
-                                  {memberBuckets
-                                    .filter(b => b.id !== bucket.id)
-                                    .map(targetB => (
+                                  {members
+                                    .filter((m) => m.id !== bucket.id)
+                                    .map((target) => (
                                       <button
-                                        key={targetB.id}
+                                        key={target.id}
                                         type="button"
                                         className="reassign-menu-item"
-                                        onClick={() => handleReassignItemToPerson(bucket.id, assigned.id, targetB.id)}
+                                        onClick={() => {
+                                          setActiveReassignMenu(null);
+                                          moveItem(assigned.id, bucket.id, target.id);
+                                        }}
                                       >
-                                        → {targetB.name}
+                                        → {nameOf[target.id]}
                                       </button>
                                     ))}
                                   <button
                                     type="button"
                                     className="reassign-menu-item unassign-opt"
-                                    onClick={() => handleReassignItemToPerson(bucket.id, assigned.id, 'unassigned')}
+                                    onClick={() => {
+                                      setActiveReassignMenu(null);
+                                      handleUnassignItem(bucket.id, assigned.id);
+                                    }}
                                   >
                                     ↩ Unassign Item
                                   </button>
@@ -681,9 +412,8 @@ export const ItemizedAmbaganView = ({
                               )}
                             </div>
 
-                            {/* Remove button */}
-                            <button 
-                              type="button" 
+                            <button
+                              type="button"
                               className="btn-remove-assigned-item"
                               onClick={() => handleUnassignItem(bucket.id, assigned.id)}
                               title="Unassign item"
@@ -703,12 +433,11 @@ export const ItemizedAmbaganView = ({
                     )}
                   </div>
 
-                  {/* Split Item Action Button */}
                   <div className="bucket-action-footer">
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       className="btn-split-bucket-item"
-                      onClick={() => handleOpenSplitModal(bucket.id)}
+                      onClick={() => openSplitModal(bucket.id)}
                       disabled={bucket.assignedItems.length === 0}
                     >
                       Split Item
@@ -720,23 +449,23 @@ export const ItemizedAmbaganView = ({
           </div>
         </div>
 
-        {/* Bottom Continue Action */}
         <div className="item-split-bottom-action">
-          <button 
-            type="button" 
+          <button
+            type="button"
             className="btn-item-split-continue"
-            onClick={handleFinishContinue}
+            onClick={handleSave}
+            disabled={isSaving}
             id="btn-item-split-continue-action"
           >
-            <span>Continue</span>
+            <span>{isSaving ? 'Saving…' : `Save Expense · ${peso(overallTotal)}`}</span>
             <ArrowRight size={18} strokeWidth={2.4} />
           </button>
         </div>
       </div>
 
-      {/* Modal: Interactive Split Item Dialog */}
-      {isSplitModalOpen && (
-        <div className="modal-backdrop" onClick={() => setIsSplitModalOpen(false)}>
+      {/* Split one item between several people */}
+      {splitModal && splitItem && (
+        <div className="modal-backdrop" onClick={() => setSplitModal(null)}>
           <div className="modal-card split-item-modal-card animate-fade-in" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <div className="modal-title-box">
@@ -745,57 +474,45 @@ export const ItemizedAmbaganView = ({
                 </div>
                 <div>
                   <h3 className="modal-title-heading">Split Item with Squad</h3>
-                  <span className="modal-sub">
-                    Divide this item evenly or assign among selected friends
-                  </span>
+                  <span className="modal-sub">Divide this item evenly among selected friends</span>
                 </div>
               </div>
-              <button className="modal-close-btn" onClick={() => setIsSplitModalOpen(false)}>✕</button>
+              <button className="modal-close-btn" onClick={() => setSplitModal(null)}>
+                ✕
+              </button>
             </div>
 
             <div className="modal-body split-modal-body">
-              {/* Select Item to Split */}
               <div className="form-group">
                 <label className="form-label">Select Item to Split</label>
                 <div className="custom-select-wrapper">
-                  <select 
-                    value={selectedSplitItemId} 
-                    onChange={(e) => setSelectedSplitItemId(e.target.value)}
+                  <select
+                    value={splitModal.itemId}
+                    onChange={(e) => setSplitModal({ ...splitModal, itemId: e.target.value })}
                     className="form-select custom-select-input"
                   >
-                    {memberBuckets
-                      .find(b => b.id === selectedSplitBucketId)
-                      ?.assignedItems.map(item => (
-                        <option key={item.id} value={item.id}>
-                          {item.name} — ₱{Number(item.price).toFixed(2)}
-                        </option>
-                      ))}
+                    {items.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name} — {peso(item.price)}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
 
-              {/* Split Among Members Selection */}
               <div className="form-group">
-                <label className="form-label">
-                  Split Among ({selectedSplitMemberIds.length} members selected)
-                </label>
+                <label className="form-label">Split Among ({splitModal.memberIds.length} selected)</label>
                 <div className="split-members-picker-row">
-                  {memberBuckets.map(b => {
-                    const isSelected = selectedSplitMemberIds.includes(b.id);
+                  {members.map((m) => {
+                    const isSelected = splitModal.memberIds.includes(m.id);
                     return (
-                      <div 
-                        key={b.id} 
+                      <div
+                        key={m.id}
                         className={`split-member-pill-btn ${isSelected ? 'selected' : ''}`}
-                        onClick={() => handleToggleSplitMember(b.id)}
+                        onClick={() => toggleSplitMember(m.id)}
                       >
-                        <div className="split-member-avatar-circle">
-                          {b.avatarEmoji === 'M' ? (
-                            <span>{b.avatarEmoji}</span>
-                          ) : (
-                            <img src={b.avatarUrl} alt={b.name} />
-                          )}
-                        </div>
-                        <span className="split-member-name">{b.name}</span>
+                        <Avatar person={m} className="split-member-avatar-circle" />
+                        <span className="split-member-name">{nameOf[m.id]}</span>
                         {isSelected && <Check size={14} color="#7C3AED" strokeWidth={3} />}
                       </div>
                     );
@@ -803,37 +520,27 @@ export const ItemizedAmbaganView = ({
                 </div>
               </div>
 
-              {/* Live Computed Split Preview */}
-              {(() => {
-                const sourceB = memberBuckets.find(b => b.id === selectedSplitBucketId);
-                const itemToSplit = sourceB?.assignedItems.find(i => i.id === selectedSplitItemId) || sourceB?.assignedItems[0];
-                const count = selectedSplitMemberIds.length;
-                const pricePerHead = (itemToSplit?.price || 0) / (count || 1);
-
-                return (
-                  <div className="split-preview-summary-box">
-                    <div className="split-preview-header">
-                      <span className="split-preview-item-name">{itemToSplit?.name || 'Selected Item'}</span>
-                      <span className="split-preview-item-total">Total: ₱{(itemToSplit?.price || 0).toFixed(2)}</span>
-                    </div>
-                    <div className="split-preview-calc-row">
-                      <span className="split-calc-math">
-                        ₱{(itemToSplit?.price || 0).toFixed(2)} ÷ {count} person{count > 1 ? 's' : ''}
-                      </span>
-                      <span className="split-calc-result">
-                        = <strong>₱{pricePerHead.toFixed(2)}</strong> each
-                      </span>
-                    </div>
-                  </div>
-                );
-              })()}
+              <div className="split-preview-summary-box">
+                <div className="split-preview-header">
+                  <span className="split-preview-item-name">{splitItem.name}</span>
+                  <span className="split-preview-item-total">Total: {peso(splitItem.price)}</span>
+                </div>
+                <div className="split-preview-calc-row">
+                  <span className="split-calc-math">
+                    {peso(splitItem.price)} ÷ {splitModal.memberIds.length} {splitModal.memberIds.length > 1 ? 'people' : 'person'}
+                  </span>
+                  <span className="split-calc-result">
+                    = <strong>{peso(splitItem.price / splitModal.memberIds.length)}</strong> each
+                  </span>
+                </div>
+              </div>
             </div>
 
             <div className="modal-actions" style={{ marginTop: '20px' }}>
-              <button type="button" className="btn-secondary" onClick={() => setIsSplitModalOpen(false)}>
+              <button type="button" className="btn-secondary" onClick={() => setSplitModal(null)}>
                 Cancel
               </button>
-              <button type="button" className="btn-primary" onClick={handleExecuteSplitItem}>
+              <button type="button" className="btn-primary" onClick={confirmSplit}>
                 Confirm Split
               </button>
             </div>

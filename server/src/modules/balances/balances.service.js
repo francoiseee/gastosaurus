@@ -26,10 +26,28 @@ function person(row, currentUserId) {
   };
 }
 
-/** rows with { net } → suggested payments with names attached. */
-function suggestionsFor(rows, currentUserId) {
+/**
+ * Settle Up for one group: member rows with { net } (+ pending payments) →
+ * [{ from, to, amount }] in centavos.
+ *
+ * Pending payments (sent, not yet confirmed) don't change balances, but they
+ * ARE on their way — so suggestions treat them as done. Otherwise the payer
+ * would be told to pay the same debt again while waiting for confirmation.
+ */
+export function projectedSuggestions(rows, pending = []) {
+  const nets = new Map(rows.map((r) => [r.member_id ?? r.id, toCentavos(r.net ?? '0')]));
+  for (const p of pending) {
+    if (!nets.has(p.from_member) || !nets.has(p.to_member)) continue;
+    nets.set(p.from_member, nets.get(p.from_member) + toCentavos(p.amount));
+    nets.set(p.to_member, nets.get(p.to_member) - toCentavos(p.amount));
+  }
+  return suggestSettlements([...nets].map(([memberId, net]) => ({ memberId, net })));
+}
+
+/** projectedSuggestions with names and avatars attached, amounts in pesos. */
+function suggestionsFor(rows, currentUserId, pending = []) {
   const byId = new Map(rows.map((r) => [r.member_id ?? r.id, r]));
-  const payments = suggestSettlements(rows.map((r) => ({ memberId: r.member_id ?? r.id, net: toCentavos(r.net ?? '0') })));
+  const payments = projectedSuggestions(rows, pending);
   return payments.map((p) => ({
     from: person(byId.get(p.from), currentUserId),
     to: person(byId.get(p.to), currentUserId),
@@ -39,7 +57,10 @@ function suggestionsFor(rows, currentUserId) {
 
 // GET /api/groups/:groupId/balances
 export async function groupBalances(user, member) {
-  const all = await groupsRepo.listAllMembers(member.group_id);
+  const [all, pending] = await Promise.all([
+    groupsRepo.listAllMembers(member.group_id),
+    repo.pendingSettlements([member.group_id]),
+  ]);
   const myNet = toCentavos(all.find((m) => m.id === member.id)?.net ?? '0');
   return {
     me: { memberId: member.id, net: fromCentavos(myNet), statusType: statusFor(myNet) },
@@ -47,7 +68,7 @@ export async function groupBalances(user, member) {
     members: all
       .filter((m) => !m.left_at || toCentavos(m.net ?? '0') !== 0)
       .map((m) => groupsRepo.toMember(m, user.id)),
-    suggestedSettlements: suggestionsFor(all, user.id),
+    suggestedSettlements: suggestionsFor(all, user.id, pending),
     isSettled: all.every((m) => toCentavos(m.net ?? '0') === 0),
   };
 }
@@ -85,7 +106,11 @@ export async function mySummary(user, month = currentMonth()) {
   }
 
   const [from, to] = monthRange(month);
-  const spending = toCentavos(await repo.shareTotalBetween(user.id, from, to));
+  const [spendingTotal, categories] = await Promise.all([
+    repo.shareTotalBetween(user.id, from, to),
+    repo.shareTotalsByCategory(user.id, from, to),
+  ]);
+  const spending = toCentavos(spendingTotal);
   const budget = profile?.monthly_budget === null || profile?.monthly_budget === undefined ? null : toCentavos(profile.monthly_budget);
   const net = youAreOwed - youOwe;
 
@@ -102,6 +127,7 @@ export async function mySummary(user, month = currentMonth()) {
     monthlyBudget: budget === null ? null : fromCentavos(budget),
     budgetRemaining: budget === null ? null : fromCentavos(budget - spending),
     budgetUsedPercent: budget ? Math.round((spending / budget) * 1000) / 10 : null,
+    spendingByCategory: categories.map((c) => ({ category: c.category, amount: Number(c.total) })),
   };
 }
 
@@ -115,22 +141,25 @@ export async function mySettleUp(user) {
     byGroup.get(r.group_id).rows.push(r);
   }
 
+  const pendingInMyGroups = await repo.pendingSettlements([...byGroup.keys()]);
   const toPay = [];
   const toReceive = [];
   for (const g of byGroup.values()) {
-    for (const s of suggestionsFor(g.rows, user.id)) {
-      const group = { id: g.id, name: g.name, iconId: g.iconId };
+    const myMemberId = g.rows.find((r) => r.user_id === user.id)?.member_id;
+    const groupPending = pendingInMyGroups.filter((p) => p.group_id === g.id);
+    for (const s of suggestionsFor(g.rows, user.id, groupPending)) {
+      const group = { id: g.id, name: g.name, iconId: g.iconId, myMemberId };
       if (s.from.isCurrentUser) toPay.push({ group, to: s.to, amount: s.amount });
       if (s.to.isCurrentUser) toReceive.push({ group, from: s.from, amount: s.amount });
     }
   }
 
-  const pending = (await settlementsRepo.listForUser(user.id, { status: 'pending' })).map((r) =>
-    settlementsRepo.toSettlement(r, user.id),
-  );
-  const recent = (await settlementsRepo.listForUser(user.id, { status: 'completed', limit: 20 })).map((r) =>
-    settlementsRepo.toSettlement(r, user.id),
-  );
+  const [myPending, recentRows] = await Promise.all([
+    settlementsRepo.listForUser(user.id, { status: 'pending' }),
+    settlementsRepo.listForUser(user.id, { status: 'completed', limit: 20 }),
+  ]);
+  const pending = myPending.map((r) => settlementsRepo.toSettlement(r, user.id));
+  const recent = recentRows.map((r) => settlementsRepo.toSettlement(r, user.id));
 
   return {
     toPay,

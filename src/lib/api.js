@@ -46,7 +46,7 @@ export const profileApi = {
   update: (fields) => apiRequest('/me', { method: 'PATCH', body: fields }).then((d) => d.user),
 };
 
-// ─── Phase 2: groups, expenses, balances, settlements ───────────────────────
+// ─── Groups, expenses, balances, settlements, notifications ─────────────────
 // Money is sent and received in pesos (e.g. 1850.5); the server does all the
 // splitting math in centavos. Errors throw ApiError with .fields for forms.
 const q = (params = {}) => {
@@ -72,7 +72,15 @@ export const groupsApi = {
   removeMember: (groupId, memberId) => apiRequest(`/groups/${groupId}/members/${memberId}`, { method: 'DELETE' }),
   /** → { me, members, suggestedSettlements: [{ from, to, amount }], isSettled } */
   balances: (groupId) => apiRequest(`/groups/${groupId}/balances`),
+  /** Admin: new join-link code (old links stop working). → { group, members, pendingInvites } */
+  resetInviteLink: (groupId) => apiRequest(`/groups/${groupId}/invite-code`, { method: 'POST' }),
+  /** Nudge everyone who owes (or just memberIds). → { sent: [...], skipped: [...] } */
+  sendReminders: (groupId, memberIds) =>
+    apiRequest(`/groups/${groupId}/reminders`, { method: 'POST', body: memberIds ? { memberIds } : {} }),
 };
+
+/** The share link for a group's invite code. Opening it joins the group. */
+export const inviteLinkFor = (inviteCode) => `${window.location.origin}/?join=${inviteCode}`;
 
 export const invitesApi = {
   /** Invite by email; memberId = a guest spot they will claim. */
@@ -81,6 +89,8 @@ export const invitesApi = {
   /** Invites waiting for me */
   mine: () => apiRequest('/invites').then((d) => d.invites),
   accept: (inviteId) => apiRequest(`/invites/${inviteId}/accept`, { method: 'POST' }).then((d) => d.group),
+  /** Join with the code from a share link. → group summary */
+  join: (code) => apiRequest('/invites/join', { method: 'POST', body: { code } }).then((d) => d.group),
   decline: (inviteId) => apiRequest(`/invites/${inviteId}/decline`, { method: 'POST' }),
   cancel: (inviteId) => apiRequest(`/invites/${inviteId}`, { method: 'DELETE' }),
 };
@@ -115,4 +125,12 @@ export const meApi = {
   summary: (month) => apiRequest(`/me/summary${q({ month })}`).then((d) => d.summary),
   /** { toPay, toReceive, awaitingMyConfirmation, awaitingTheirConfirmation, recent } */
   settleUp: () => apiRequest('/me/settle-up'),
+};
+
+export const notificationsApi = {
+  /** → { notifications: [{ id, type, title, body, data, read, createdAt }], unreadCount } */
+  list: ({ limit, before, unread } = {}) => apiRequest(`/notifications${q({ limit, before, unread })}`),
+  markRead: (id) => apiRequest(`/notifications/${id}/read`, { method: 'PATCH' }).then((d) => d.notification),
+  markAllRead: () => apiRequest('/notifications/read-all', { method: 'POST' }),
+  remove: (id) => apiRequest(`/notifications/${id}`, { method: 'DELETE' }),
 };

@@ -6,9 +6,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { generateKeyPair, SignJWT } from 'jose';
-import { useHarness, ISSUER } from './helpers/harness.js';
+import { setupHarness, ISSUER } from './helpers/harness.js';
 
-const h = useHarness();
+const h = setupHarness();
 const { pool } = h;
 const createAuthUser = (...a) => h.createAuthUser(...a);
 const signToken = (...a) => h.signToken(...a);

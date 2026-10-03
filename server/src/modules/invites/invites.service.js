@@ -11,6 +11,7 @@ import { HttpError } from '../../utils/HttpError.js';
 import { assertMember, assertUuid } from '../groups/membership.js';
 import * as groupsRepo from '../groups/groups.repository.js';
 import * as profiles from '../profile/profile.repository.js';
+import * as notify from '../notifications/notify.js';
 import * as repo from './invites.repository.js';
 
 /**
@@ -37,7 +38,9 @@ export async function createInviteTx(db, { groupId, email, memberId = null, invi
     }
   }
 
-  return repo.insertInvite({ groupId, email, memberId, invitedBy }, db);
+  const inviteId = await repo.insertInvite({ groupId, email, memberId, invitedBy }, db);
+  await notify.inviteSent(db, { groupId, actorId: invitedBy, email, inviteId });
+  return inviteId;
 }
 
 // POST /api/groups/:groupId/invites  { email, memberId? }
@@ -73,8 +76,7 @@ async function lockOwnPendingInvite(db, user, inviteId) {
 export async function acceptInvite(user, inviteId) {
   const groupId = await withTransaction(async (db) => {
     const invite = await lockOwnPendingInvite(db, user, inviteId);
-    const fallbackName = (user.name || user.email.split('@')[0]).slice(0, 60);
-    const profile = (await profiles.findById(user.id)) ?? (await profiles.ensureExists(user.id, fallbackName));
+    const profile = await profiles.getOrCreate(user);
 
     const previous = await groupsRepo.findMemberByUser(invite.group_id, user.id, db);
     if (previous && !previous.left_at) {
@@ -92,7 +94,37 @@ export async function acceptInvite(user, inviteId) {
 
     await repo.setStatus(invite.id, 'accepted', db);
     await groupsRepo.touchGroup(invite.group_id, db);
+    if (!previous || previous.left_at) await notify.memberJoined(db, { groupId: invite.group_id, userId: user.id });
     return invite.group_id;
+  });
+
+  return groupsRepo.toGroupSummary(await groupsRepo.findSummaryForUser(groupId, user.id));
+}
+
+/**
+ * POST /api/invites/join  { code } — join through a share link.
+ * Already a member → nothing changes. Left before → your old spot comes back.
+ */
+export async function joinByCode(user, code) {
+  const groupId = await withTransaction(async (db) => {
+    const id = await groupsRepo.findIdByInviteCode(code.toLowerCase(), db);
+    if (!id) throw HttpError.notFound('That invite link is not valid any more. Ask for a new one.');
+
+    const profile = await profiles.getOrCreate(user);
+    const previous = await groupsRepo.findMemberByUser(id, user.id, db);
+    if (previous && !previous.left_at) return id; // already in
+
+    if (previous) await groupsRepo.reactivate(previous.id, db);
+    else await groupsRepo.insertMember({ groupId: id, userId: user.id, displayName: profile.name }, db);
+
+    // An email invite for this person is now redundant.
+    if (user.email) {
+      const pending = await repo.findPending(id, user.email.toLowerCase(), db);
+      if (pending) await repo.setStatus(pending.id, 'accepted', db);
+    }
+    await groupsRepo.touchGroup(id, db);
+    await notify.memberJoined(db, { groupId: id, userId: user.id });
+    return id;
   });
 
   return groupsRepo.toGroupSummary(await groupsRepo.findSummaryForUser(groupId, user.id));

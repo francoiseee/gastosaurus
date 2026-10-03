@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Check, Handshake, ChevronDown } from './CustomIcons';
 
 export const SettleUpModal = ({ isOpen, onClose, onConfirmSettle }) => {

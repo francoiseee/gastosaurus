@@ -2,7 +2,7 @@
 
 Gastosaurus tracks group expenses and auto-splits them "ambagan"-style, including itemized splits where people pay only for what they ordered. This document describes how the backend is built and the plan for the remaining phases.
 
-**Status:** Phases 1–4 are built on the backend: accounts; groups with guest members and invites; expenses with equal, itemized and custom splitting; live balances; Settle Up; and payments. Next are wiring the screens to the API, then notifications (Phase 5) and deployment. For a plain-language walkthrough of the splitting math, see [HOW-THE-MONEY-WORKS.md](HOW-THE-MONEY-WORKS.md).
+**Status:** Phases 1–5 are built and every screen runs on real data: accounts; groups with guest members, email invites and join links; expenses with equal, itemized and custom splitting; live balances; Settle Up; payments with confirmation; and notifications with reminders and live updates. Deployment (Phase 6) is next. For a plain-language walkthrough of the splitting math, see [HOW-THE-MONEY-WORKS.md](HOW-THE-MONEY-WORKS.md).
 
 ---
 
@@ -62,35 +62,50 @@ There are three parts:
 
 ```
 gastosaurus/
-├── src/                       React app
+├── src/                          React app
+│   ├── App.jsx                   navigation, auth session, toasts, add-expense draft, refresh signal
+│   ├── components/               one file per screen or modal (+ Avatar, GroupIcon, CustomIcons)
+│   ├── hooks/
+│   │   ├── useAsync.js           load data from the API, reload when inputs change
+│   │   └── useNotifications.js   inbox + pending invites, live via Supabase Realtime
 │   ├── lib/
-│   │   ├── supabase.js        Supabase client + "Keep me logged in" storage + friendly errors
-│   │   └── api.js             fetch wrapper for /api (adds the Bearer token)
-│   └── components/AuthModal.jsx   Log in / Sign up / Forgot / New password / Check email
-├── server/                    Express API
+│   │   ├── supabase.js           Supabase client + "Keep me logged in" storage + friendly errors
+│   │   ├── api.js                every API call (groupsApi, expensesApi, settlementsApi, …)
+│   │   └── format.js             ₱ formatting, dates, "5m ago", initials
+│   └── data/groupIcons.js        the 54 group icons
+├── server/                       Express API
 │   ├── src/
-│   │   ├── server.js          starts the app (checks DB first)
-│   │   ├── app.js             middleware + route mounting
-│   │   ├── config/env.js      all environment variables in one place
-│   │   ├── db/pool.js         pg Pool, query(), withTransaction()
-│   │   ├── lib/               verifySupabaseToken.js, money.js (centavos),
-│   │   │                      splitting.js (the ambagan algorithm), validators.js
-│   │   ├── middleware/        requireAuth, validateBody, errorHandler
+│   │   ├── server.js             starts the app (checks DB first)
+│   │   ├── app.js                middleware + route mounting
+│   │   ├── config/env.js         all environment variables in one place
+│   │   ├── db/pool.js            pg Pool, query(), withTransaction()
+│   │   ├── lib/                  verifySupabaseToken.js, money.js (centavos),
+│   │   │                         splitting.js (the ambagan algorithm), validators.js
+│   │   ├── middleware/           requireAuth, validateBody, errorHandler
 │   │   ├── utils/HttpError.js
-│   │   └── modules/
-│   │       ├── profile/       /api/me
-│   │       ├── groups/        groups, members, membership guard
-│   │       ├── invites/       invite by email, accept / decline / cancel
-│   │       ├── expenses/      add / edit expenses (runs the split)
-│   │       ├── balances/      group balances, dashboard summary, settle-up
-│   │       └── settlements/   record / confirm / undo payments
-│   │       (next: notifications/)
-│   └── test/
-├── supabase/migrations/       SQL migrations, applied in filename order
-├── docs/ARCHITECTURE.md       this file
-└── docs/HOW-THE-MONEY-WORKS.md   app flow + splitting algorithm in plain language
+│   │   └── modules/              each: *.routes.js → *.validation.js → *.service.js → *.repository.js
+│   │       ├── profile/          /api/me
+│   │       ├── groups/           groups, members, membership guard, invite codes
+│   │       ├── invites/          invite by email or join link; accept / decline / cancel
+│   │       ├── expenses/         add / edit / delete expenses (runs the split)
+│   │       ├── balances/         group balances, dashboard summary, settle-up
+│   │       ├── settlements/      record / confirm / undo payments
+│   │       └── notifications/    inbox, reminders, and notify.js (every message the app sends)
+│   └── test/                     splitting (unit), groups + notifications (end-to-end API), profile
+├── supabase/migrations/          SQL migrations, applied in filename order
+└── docs/
+    ├── ARCHITECTURE.md           this file
+    ├── HOW-THE-MONEY-WORKS.md    app flow + splitting algorithm in plain language
+    └── QA-CHECKLIST.md           what to click through before a release, and files safe to delete
 ```
 
+### How the React app gets its data
+
+- **Each screen loads what it shows** with `useAsync(() => api.call(), [inputs, refreshKey])`. There is no global store; `App.jsx` only keeps which screen and group are open.
+- **After any save, call `onChanged()`** (it's `refresh()` in `App.jsx`). That bumps `refreshKey`, and every visible screen re-fetches, so balances everywhere stay in sync.
+- **Notifications are live.** `useNotifications` subscribes to Supabase Realtime for the user's own `notifications` rows. When one arrives (say, a friend added an expense), the bell updates and the app refreshes.
+- **Adding an expense is a two-step draft** kept in `App.jsx`. The calculator adds one item at a time, then the item-split screen assigns items to people. Saving sends one item as an `equal` split and several as an `itemized` split; the server does the centavo math.
+- **Join links** look like `<app>/?join=<code>`. The code is kept in sessionStorage across sign-up or log-in, then `POST /api/invites/join` adds the user.
 ### Layers inside each API module
 
 ```
@@ -159,7 +174,7 @@ Sign up, log in, log out, Google and reset are **not** API endpoints. They're `s
 
 ## 5. Data model
 
-Migrations: `20261003010000_create_profiles.sql` (Phase 1), `20261003020000_create_groups.sql` and `20261003030000_create_expenses_and_settlements.sql` (Phase 2).
+Migrations, in order: `…010000_create_profiles` (accounts), `…020000_create_groups`, `…030000_create_expenses_and_settlements`, `…040000_create_notifications` (also adds a welcome message to the sign-up trigger) and `…050000_add_group_invite_codes`. All five are applied on the Supabase project.
 
 ```mermaid
 erDiagram
@@ -175,7 +190,7 @@ erDiagram
   EXPENSES ||--o{ EXPENSE_SHARES : "who owes what"
   GROUP_MEMBERS ||--o{ EXPENSE_SHARES : owes
   GROUPS ||--o{ SETTLEMENTS : records
-  PROFILES ||--o{ NOTIFICATIONS : "receives (Phase 5)"
+  PROFILES ||--o{ NOTIFICATIONS : receives
 
   PROFILES {
     uuid id PK "= auth.users.id"
@@ -191,6 +206,7 @@ erDiagram
     varchar icon_id "e.g. set1_2_3"
     varchar icon_bg
     varchar icon_color
+    varchar invite_code "join link: /?join=<code>"
     uuid created_by FK
   }
   GROUP_MEMBERS {
@@ -246,6 +262,16 @@ erDiagram
     text method "cash | gcash | maya | bank"
     text status "pending | completed"
   }
+  NOTIFICATIONS {
+    uuid id PK
+    uuid user_id FK
+    text type "welcome | invite | group | expense | payment | reminder"
+    varchar title
+    varchar body
+    uuid group_id FK
+    jsonb data "ids to open: inviteId, expenseId, settlementId"
+    timestamptz read_at
+  }
 ```
 
 ### Members are rows, not just accounts
@@ -278,7 +304,22 @@ This is the view `group_balances (group_id, member_id, net, total_paid, total_sh
 
 **Suggested settlements** (`suggestSettlements`): the biggest debtor pays the biggest creditor, repeated until everyone is at zero. That takes at most *n − 1* payments.
 
-**Payment confirmation:** a payment to a member with an account is `pending` until the receiver confirms. A payment the receiver records, or one to a guest, is `completed` immediately. Only completed payments affect balances.
+**Payment confirmation:** a payment to a member with an account is `pending` until the receiver confirms. A payment the receiver records, or one to a guest, is `completed` immediately. Only completed payments affect balances, but Settle Up suggestions and reminders count pending payments as already sent, so nobody is asked to pay the same debt twice.
+
+### Notifications
+
+`server/src/modules/notifications/notify.js` is the one place that decides who hears about what and how it's worded. Services call it **inside their own transaction**, so a notification exists only if the change it describes was saved. The person who acted is never notified about their own action, and guests (no account) never are.
+
+| Event | Who is notified |
+|---|---|
+| Sign-up | the new user (welcome, written by the DB trigger) |
+| Invite sent | the invitee, if they already have an account (otherwise they see it under *Invites* after signing up) |
+| Someone joins | everyone else in the group |
+| Expense added, re-split or deleted | the payer and everyone with a share (with their own share in the message) |
+| Payment recorded | the other side. If pending, the receiver gets a **Confirm** action |
+| Payment confirmed | the payer |
+| Removed from group | the removed member |
+| Reminder | members who owe, with exactly whom to pay. At most one per person per group every 12 hours |
 
 ### Security in the database
 
@@ -315,10 +356,12 @@ All endpoints require `Authorization: Bearer <token>`. `:groupId` routes require
 | 4 ✅ | `GET /api/me/settle-up` | Across all groups: `toPay`, `toReceive`, payments awaiting confirmation, recent payments | SettlementsView |
 | 4 ✅ | `GET/POST /api/groups/:groupId/settlements` | List / record a payment `{ toMemberId, amount, method, fromMemberId?, note? }` | PaymentView, SettleUpModal |
 | 4 ✅ | `PATCH /api/settlements/:id` `{ status: "completed" }` · `DELETE` | Receiver confirms / withdraw or undo | SettlementsView |
-| 5 | `GET /api/notifications` · `PATCH /api/notifications/:id/read` · `POST /api/notifications/read-all` | Bell and NotificationsView | Navbar, NotificationsView |
-| 5 | `POST /api/groups/:groupId/reminders` | Nudge members who owe | SettlementsView |
+| 2 ✅ | `POST /api/invites/join` `{ code }` · `POST /api/groups/:groupId/invite-code` | Join with a share link · reset the link (admin) | InviteMemberView |
+| 5 ✅ | `GET /api/notifications?limit&before&unread=true` | `{ notifications, unreadCount }` | Navbar bell, NotificationsView |
+| 5 ✅ | `PATCH /api/notifications/:id/read` · `POST /api/notifications/read-all` · `DELETE /api/notifications/:id` | Mark read / clear | NotificationsView |
+| 5 ✅ | `POST /api/groups/:groupId/reminders` `{ memberIds? }` | Nudge members who owe → `{ sent, skipped }` | SettlementsView, GroupDetailModal |
 
-As each screen moves off `mockData.js`, swap in the matching `src/lib/api.js` call.
+Every screen now uses these through `src/lib/api.js`; `mockData.js` is no longer imported anywhere.
 
 ---
 
@@ -326,19 +369,19 @@ As each screen moves off `mockData.js`, swap in the matching `src/lib/api.js` ca
 
 | Phase | Scope | Status |
 |---|---|---|
-| **1. Accounts** | Supabase Auth, `profiles` + trigger + RLS, `/api/me`, login/sign-up/Google/forgot/new-password UI | ✅ Done (`backend-auth`) |
-| **2. Groups** | Groups, guest members, invites (claim a guest spot), leave/remove rules, admin hand-over | ✅ Built (`backend-groups`) |
-| **3. Expenses** | Equal / itemized (with charges and discounts) / custom splitting in centavos, shares-equal-total trigger | ✅ Built (`backend-groups`) |
-| **4. Balances & settlements** | `group_balances` view, Settle Up suggestions, payments with confirmation, dashboard summary, cross-group settle-up | ✅ Built (`backend-groups`) |
-| **Frontend wiring** | Replace `mockData.js` in each screen with the `src/lib/api.js` calls | Next |
-| **5. Notifications** | `notifications` table written by the services (invite sent, expense added, payment received / confirmed), reminders; later, live updates with Supabase Realtime | |
-| **6. Deploy** | Vercel + Render + Supabase production settings | |
+| **1. Accounts** | Supabase Auth, `profiles` + trigger + RLS, `/api/me`, login/sign-up/Google/forgot/new-password UI | ✅ |
+| **2. Groups** | Groups, guest members, email invites (claim a guest spot), join links, leave/remove rules, admin hand-over | ✅ |
+| **3. Expenses** | Equal / itemized (with charges and discounts) / custom splitting in centavos, shares-equal-total trigger | ✅ |
+| **4. Balances & settlements** | `group_balances` view, Settle Up suggestions, payments with confirmation, dashboard summary, cross-group settle-up | ✅ |
+| **5. Notifications** | Notifications written by the services, reminders with cooldown, live updates with Supabase Realtime | ✅ |
+| **Screens on real data** | Every screen uses `src/lib/api.js`; mock data removed from use | ✅ |
+| **6. Deploy** | Vercel + Render + Supabase production settings | Next |
 
 ## 8. Running it locally
 
 1. **Frontend env:** `cp .env.example .env.local`. The Supabase URL and publishable key are already filled in.
 2. **Backend env:** `cd server && cp .env.example .env`, then paste the database connection string (see `server/README.md`).
-3. **Database:** apply any migrations in `supabase/migrations/` that aren't on Supabase yet, in filename order (SQL Editor → paste → Run). Phase 2 adds `20261003020000_create_groups.sql` and `20261003030000_create_expenses_and_settlements.sql`.
+3. **Database:** all migrations up to `20261003050000_add_group_invite_codes.sql` are already applied on the `gastosaurus` Supabase project. When someone adds a new file to `supabase/migrations/`, run it once in SQL Editor (paste → Run), then check Advisors.
 4. Install dependencies in both folders: `npm install` at the repo root and `npm install` in `server/`.
 5. Run the API and the frontend in two terminals: `cd server && npm run dev` (API on :4000) and `npm run dev` at the root (app on :5173).
 

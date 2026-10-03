@@ -10,6 +10,7 @@ import * as invites from '../invites/invites.service.js';
 import { groupExpensesRouter } from '../expenses/expenses.routes.js';
 import { groupSettlementsRouter } from '../settlements/settlements.routes.js';
 import { groupBalancesRouter } from '../balances/balances.routes.js';
+import { groupRemindersRouter } from '../notifications/notifications.routes.js';
 
 export const groupsRouter = Router();
 
@@ -56,11 +57,15 @@ groupsRouter.patch('/:groupId/members/:memberId', validateBody(schemas.updateMem
 });
 
 groupsRouter.delete('/:groupId/members/:memberId', async (req, res) => {
-  await service.removeMember(req.member, req.params.memberId);
+  await service.removeMember(req.user, req.member, req.params.memberId);
   res.status(204).end();
 });
 
-// Invites
+// Invites (by email, or by the group's join link)
+groupsRouter.post('/:groupId/invite-code', async (req, res) => {
+  res.json(await service.rotateInviteCode(req.user, req.member));
+});
+
 groupsRouter.post('/:groupId/invites', validateBody(inviteCreateSchema), async (req, res) => {
   res.status(201).json({ invite: await invites.createInvite(req.user, req.member, req.body) });
 });
@@ -69,3 +74,4 @@ groupsRouter.post('/:groupId/invites', validateBody(inviteCreateSchema), async (
 groupsRouter.use('/:groupId/expenses', groupExpensesRouter);
 groupsRouter.use('/:groupId/balances', groupBalancesRouter);
 groupsRouter.use('/:groupId/settlements', groupSettlementsRouter);
+groupsRouter.use('/:groupId/reminders', groupRemindersRouter);

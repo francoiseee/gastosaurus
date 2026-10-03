@@ -13,6 +13,7 @@ import { withTransaction } from '../../db/pool.js';
 import { HttpError } from '../../utils/HttpError.js';
 import { assertMember, assertUuid } from '../groups/membership.js';
 import * as groupsRepo from '../groups/groups.repository.js';
+import * as notify from '../notifications/notify.js';
 import * as repo from './settlements.repository.js';
 
 // GET /api/groups/:groupId/settlements
@@ -58,6 +59,7 @@ export async function recordSettlement(user, member, body) {
       db,
     );
     await groupsRepo.touchGroup(member.group_id, db);
+    await notify.paymentRecorded(db, { settlement: await repo.findById(settlementId, db), actorId: user.id });
     return settlementId;
   });
 
@@ -83,6 +85,7 @@ export async function confirmSettlement(user, settlementId) {
     }
     if (settlement.status === 'completed') throw HttpError.conflict('This payment is already confirmed.');
     await repo.markCompleted(settlement.id, db);
+    await notify.paymentConfirmed(db, { settlement, actorId: user.id });
   });
   return repo.toSettlement(await repo.findById(settlementId), user.id);
 }

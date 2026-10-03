@@ -16,6 +16,7 @@ export function toGroupSummary(row) {
     iconId: row.icon_id,
     iconBg: row.icon_bg,
     iconColor: row.icon_color,
+    inviteCode: row.invite_code, // for the share link: <app>/?join=<code>
     membersCount: Number(row.members_count),
     myMemberId: row.my_member_id,
     myRole: row.my_role,
@@ -115,6 +116,20 @@ export async function updateGroup(groupId, fields, db = pool) {
 /** Bump updated_at so the group floats to the top of "my groups". */
 export async function touchGroup(groupId, db = pool) {
   await db.query('UPDATE public.groups SET updated_at = now() WHERE id = $1', [groupId]);
+}
+
+/** Group id for a join-link code, or null. */
+export async function findIdByInviteCode(code, db = pool) {
+  const { rows } = await db.query('SELECT id FROM public.groups WHERE invite_code = $1', [code]);
+  return rows[0]?.id ?? null;
+}
+
+/** New random join code; old links stop working. */
+export async function rotateInviteCode(groupId, db = pool) {
+  await db.query(
+    `UPDATE public.groups SET invite_code = substr(replace(gen_random_uuid()::text, '-', ''), 1, 10) WHERE id = $1`,
+    [groupId],
+  );
 }
 
 export async function deleteGroup(groupId, db = pool) {
@@ -233,9 +248,4 @@ export async function isGroupSettled(groupId, db = pool) {
     [groupId],
   );
   return rows[0].settled;
-}
-
-export async function profileName(userId, db = pool) {
-  const { rows } = await db.query('SELECT name FROM public.profiles WHERE id = $1', [userId]);
-  return rows[0]?.name ?? null;
 }

@@ -38,3 +38,31 @@ export async function shareTotalBetween(userId, fromDate, toDate, db = pool) {
   );
   return rows[0].total;
 }
+
+/** Same as shareTotalBetween, broken down by the groups' categories. */
+export async function shareTotalsByCategory(userId, fromDate, toDate, db = pool) {
+  const { rows } = await db.query(
+    `SELECT g.category, sum(s.amount) AS total
+       FROM public.expense_shares s
+       JOIN public.expenses e      ON e.id = s.expense_id
+       JOIN public.groups g        ON g.id = e.group_id
+       JOIN public.group_members m ON m.id = s.member_id
+      WHERE m.user_id = $1 AND e.spent_on >= $2::date AND e.spent_on < $3::date
+      GROUP BY g.category
+      ORDER BY total DESC`,
+    [userId, fromDate, toDate],
+  );
+  return rows;
+}
+
+/** Pending (not yet confirmed) payments in these groups. */
+export async function pendingSettlements(groupIds, db = pool) {
+  if (!groupIds.length) return [];
+  const { rows } = await db.query(
+    `SELECT group_id, from_member, to_member, amount
+       FROM public.settlements
+      WHERE status = 'pending' AND group_id = ANY($1::uuid[])`,
+    [groupIds],
+  );
+  return rows;
+}

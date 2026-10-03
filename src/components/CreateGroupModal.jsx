@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import GroupIcon from './GroupIcon';
 import { GROUP_ICONS, ICON_SETS } from '../data/groupIcons';
-import { Users, Plus, Check, Search, Sparkles, ChevronDown } from './CustomIcons';
+import { Plus, Check, Search, ChevronDown } from './CustomIcons';
+import { groupsApi } from '../lib/api';
 
 const COLOR_THEMES = [
   { name: 'Soft Pink', bg: '#FFEBEF', color: '#D94668' },
@@ -34,7 +35,7 @@ const SUGGESTIONS = [
   'Netflix / Spotify Sub'
 ];
 
-export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated }) => {
+export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated, currentUserName }) => {
   const [name, setName] = useState('');
   const [note, setNote] = useState('');
   const [category, setCategory] = useState('Travel & Trips');
@@ -42,8 +43,12 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated }) => {
   const [selectedTheme, setSelectedTheme] = useState(COLOR_THEMES[0]);
   const [activeSetTab, setActiveSetTab] = useState('all');
   const [iconSearch, setIconSearch] = useState('');
-  const [members, setMembers] = useState(['You (Admin)', 'Miguel', 'Bea']);
+  // Friends added here become guest members (no account needed yet).
+  // You are always in the group as its admin, so you're not in this list.
+  const [members, setMembers] = useState([]);
   const [newMemberName, setNewMemberName] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   // Filter icons based on Set tab and Search query
   const filteredIcons = useMemo(() => {
@@ -61,54 +66,43 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated }) => {
 
   const handleAddMember = (e) => {
     e?.preventDefault();
-    if (!newMemberName.trim()) return;
-    if (!members.includes(newMemberName.trim())) {
-      setMembers([...members, newMemberName.trim()]);
+    const friend = newMemberName.trim();
+    if (!friend) return;
+    if (!members.some((m) => m.toLowerCase() === friend.toLowerCase())) {
+      setMembers([...members, friend]);
     }
     setNewMemberName('');
   };
 
   const handleRemoveMember = (idxToRemove) => {
-    if (idxToRemove === 0) return; // Keep Admin
     setMembers(members.filter((_, idx) => idx !== idxToRemove));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!name.trim()) return;
-
-    const newGroup = {
-      id: `group-${Date.now()}`,
-      name: name.trim(),
-      note: note.trim() || '“Birthday dinner for Mike! Such a great time, everyone’s share includes the automatic 20% gratuity.”',
-      membersCount: members.length,
-      balance: 0.00,
-      totalExpense: 485.50,
-      totalSpending: 485.50,
-      iconId: selectedIconId,
-      iconBg: selectedTheme.bg,
-      iconColor: selectedTheme.color,
-      category: category,
-      recentExpense: 'Group created',
-      members: members.map((m, idx) => ({
-        id: `member-${Date.now()}-${idx}`,
-        name: m,
-        role: idx === 0 ? 'Admin' : 'Member',
-        email: `${m.toLowerCase().replace(/[^a-z0-9]/g, '')}@example.com`,
-        spentAmount: idx === 0 ? 194.20 : (idx === 1 ? 169.90 : 121.40),
-        joinedDate: 'Just now',
-        isCurrentUser: idx === 0,
-        owes: 0.00,
-        avatar: idx === 0 ? '🦖' : ['👨‍💻', '👩‍🎨', '🧑‍🍳', '🏄‍♂️', '📸', '🎧', '🍜'][idx % 7]
-      }))
-    };
-
-    if (onGroupCreated) {
-      onGroupCreated(newGroup);
+    if (!name.trim() || isSaving) return;
+    setIsSaving(true);
+    setErrorMsg('');
+    try {
+      const created = await groupsApi.create({
+        name: name.trim(),
+        note: note.trim() || null,
+        category,
+        iconId: selectedIconId,
+        iconBg: selectedTheme.bg,
+        iconColor: selectedTheme.color,
+        members: members.map((friend) => ({ name: friend })),
+      });
+      setName('');
+      setNote('');
+      setMembers([]);
+      onGroupCreated(created);
+    } catch (err) {
+      const fieldMessages = Object.values(err.fields || {});
+      setErrorMsg(fieldMessages[0] || err.message);
+    } finally {
+      setIsSaving(false);
     }
-    setName('');
-    setNote('');
-    onClose();
   };
 
   const selectedIconMeta = GROUP_ICONS.find((i) => i.id === selectedIconId) || GROUP_ICONS[0];
@@ -231,20 +225,15 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated }) => {
 
               {/* Members input */}
               <div className="form-group">
-                <label className="form-label">Members ({members.length})</label>
+                <label className="form-label">Members ({members.length + 1})</label>
                 <div className="members-chips-container">
+                  <span className="member-tag-chip">{currentUserName ? `${currentUserName} (You, Admin)` : 'You (Admin)'}</span>
                   {members.map((mem, idx) => (
-                    <span key={idx} className="member-tag-chip">
+                    <span key={mem} className="member-tag-chip">
                       {mem}
-                      {idx > 0 && (
-                        <button
-                          type="button"
-                          className="remove-chip-btn"
-                          onClick={() => handleRemoveMember(idx)}
-                        >
-                          ✕
-                        </button>
-                      )}
+                      <button type="button" className="remove-chip-btn" onClick={() => handleRemoveMember(idx)}>
+                        ✕
+                      </button>
                     </span>
                   ))}
                 </div>
@@ -286,7 +275,7 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated }) => {
                     <div className="group-info">
                       <h4 className="group-name">{name || 'Your New Group'}</h4>
                       <span className="group-members">
-                        {members.length} members • {category}
+                        {members.length + 1} members • {category}
                       </span>
                     </div>
                   </div>
@@ -404,6 +393,12 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated }) => {
             </div>
           </div>
 
+          {errorMsg && (
+            <div className="form-error-banner animate-fade-in">
+              <span>{errorMsg}</span>
+            </div>
+          )}
+
           {/* Modal Actions */}
           <div className="modal-actions modal-footer-actions">
             <button type="button" className="btn-secondary" onClick={onClose}>
@@ -412,9 +407,9 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated }) => {
             <button
               type="submit"
               className="btn-primary-action"
-              disabled={!name.trim()}
+              disabled={!name.trim() || isSaving}
             >
-              <Plus size={18} /> Create Group
+              <Plus size={18} /> {isSaving ? 'Creating…' : 'Create Group'}
             </button>
           </div>
         </form>

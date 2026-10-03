@@ -1,4 +1,3 @@
-import React from 'react';
 
 export const BankIllustration = ({ className = "bank-illustration", color = "#F3D2DB" }) => {
   return (

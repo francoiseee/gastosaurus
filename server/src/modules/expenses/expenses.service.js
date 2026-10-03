@@ -16,10 +16,11 @@
 // Who can edit/delete: whoever added it, whoever paid, or a group admin.
 import { withTransaction } from '../../db/pool.js';
 import { HttpError } from '../../utils/HttpError.js';
-import { fromCentavos } from '../../lib/money.js';
+import { fromCentavos, toCentavos } from '../../lib/money.js';
 import { equalSplit, itemizedSplit, customSplit, SplitError } from '../../lib/splitting.js';
 import { assertMember, assertUuid } from '../groups/membership.js';
 import * as groupsRepo from '../groups/groups.repository.js';
+import * as notify from '../notifications/notify.js';
 import * as repo from './expenses.repository.js';
 
 // ─── Shapes sent to the frontend ────────────────────────────────────────────
@@ -165,6 +166,16 @@ export async function createExpense(user, member, body) {
     await repo.insertItems(expenseId, split.items, split.charges, db);
     await repo.insertShares(expenseId, split.shares, db);
     await groupsRepo.touchGroup(member.group_id, db);
+    await notify.expenseChanged(db, {
+      change: 'added',
+      groupId: member.group_id,
+      actorId: user.id,
+      expenseId,
+      description: body.description,
+      totalCentavos: split.totalCentavos,
+      payerMemberId: paidBy,
+      shares: split.shares,
+    });
     return expenseId;
   });
 
@@ -200,7 +211,7 @@ export async function updateExpense(user, expenseId, body) {
     assertCanChange(expense, member);
 
     if (!body.splitType) {
-      await repo.updateDetails(expenseId, body, db);
+      await repo.updateDetails(expenseId, body, db); // wording/date only: no notification
       return;
     }
 
@@ -217,6 +228,17 @@ export async function updateExpense(user, expenseId, body) {
     );
     await repo.insertItems(expenseId, split.items, split.charges, db);
     await repo.insertShares(expenseId, split.shares, db);
+    await notify.expenseChanged(db, {
+      change: 'updated',
+      groupId: expense.group_id,
+      actorId: user.id,
+      expenseId,
+      description: body.description,
+      totalCentavos: split.totalCentavos,
+      payerMemberId: paidBy,
+      shares: split.shares,
+      removedMemberIds: [...previous].filter((id) => id !== paidBy && !split.shares.some((s) => s.memberId === id)),
+    });
   });
   return loadDetail(expenseId);
 }
@@ -226,7 +248,18 @@ export async function deleteExpense(user, expenseId) {
   await withTransaction(async (db) => {
     const { expense, member } = await loadForMember(expenseId, user.id, db, { forUpdate: true });
     assertCanChange(expense, member);
+    const shares = await repo.listShares(expenseId, db);
     await repo.deleteExpense(expenseId, db);
+    await notify.expenseChanged(db, {
+      change: 'deleted',
+      groupId: expense.group_id,
+      actorId: user.id,
+      expenseId,
+      description: expense.description,
+      totalCentavos: toCentavos(expense.total_amount),
+      payerMemberId: expense.paid_by,
+      shares: shares.map((s) => ({ memberId: s.member_id, amount: toCentavos(s.amount) })),
+    });
   });
 }
 

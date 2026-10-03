@@ -23,8 +23,7 @@ profileRouter.use(requireAuth);
 
 // GET /api/me
 profileRouter.get('/', async (req, res) => {
-  const fallbackName = req.user.name || req.user.email?.split('@')[0] || 'Budget Dino';
-  const row = (await profiles.findById(req.user.id)) ?? (await profiles.ensureExists(req.user.id, fallbackName.slice(0, 60)));
+  const row = await profiles.getOrCreate(req.user);
   res.json({ user: profiles.toProfile(row, req.user.email) });
 });
 

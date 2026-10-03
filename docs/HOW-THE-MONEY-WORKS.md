@@ -19,12 +19,14 @@ flowchart LR
 ```
 
 1. **Create a group.** The creator becomes the admin. Friends can be added **by name** right away ("Bea", "Miguel"). These are *guest members*: they don't need an account yet.
-2. **Invite by email (optional).** If Bea's email is added, she gets an invite. When she signs up and accepts it, she **claims her guest spot**: every bill already split with "Bea" becomes hers, and nothing has to be re-entered.
+2. **Invite people (optional).** Send Bea an email invite from her guest card. When she signs up and accepts it, she **claims her guest spot**: every bill already split with "Bea" becomes hers, and nothing has to be re-entered. Or share the group's **join link**, and anyone who opens it joins as a new member.
 3. **Add expenses.** Whoever paid is the *payer*. The app works out each person's *share* (see §2).
 4. **Balances update by themselves.** Nobody types a balance. Each one is recalculated from the bills and payments (see §3).
 5. **Settle Up.** The app suggests the fewest payments that bring everyone to ₱0 (see §4).
-6. **Record a payment.** If you pay someone with an account, the payment waits until they confirm they received it. A payment to a guest, or one the receiver records themselves, counts immediately.
-7. **Leave.** You can leave a group only when your balance is ₱0, so nobody can walk away from a debt. An admin can delete the group once everyone is settled.
+6. **Record a payment.** If you pay someone with an account, the payment waits until they confirm they received it (they get a **Confirm received** button in their notifications). A payment to a guest, or one the receiver records with **Mark received**, counts immediately.
+   - While a payment is waiting for confirmation, Settle Up stops asking you to pay that debt again.
+7. **Stay in the loop.** Everyone involved is notified when bills are added or changed and when payments arrive. **Send Reminders** nudges the people who owe you, telling each one exactly whom to pay, at most once every 12 hours.
+8. **Leave.** You can leave a group only when your balance is ₱0, so nobody can walk away from a debt. An admin can delete the group once everyone is settled.
 
 ---
 
@@ -108,6 +110,8 @@ Instead of everyone paying everyone back bill by bill, the app looks only at the
 > Bea −209.33, Alex −43.34, Miguel +252.67
 > → **Bea pays Miguel ₱209.33**, **Alex pays Miguel ₱43.34**. Done in 2 payments.
 
+Payments that are already sent but not yet confirmed are counted as done here, so the list never asks for the same money twice.
+
 Each payment clears at least one person, so a group of *n* people needs **at most n − 1 payments**. Chains collapse too: if A owes B and B owes C the same amount, the app just says "A pays C". A test checks this on 200 random groups: every balance ends at exactly ₱0, using no more than n − 1 payments.
 
 ---
@@ -117,11 +121,11 @@ Each payment clears at least one person, so a group of *n* people needs **at mos
 | Action | Who |
 |---|---|
 | See a group, its expenses, balances | Active members only. Outsiders get "not found". |
-| Add guests, invite by email, add expenses, record payments | Any member |
+| Add guests, invite by email or link, add expenses, record payments, send reminders | Any member |
 | Edit / delete an expense | Whoever added it, whoever paid, or an admin |
 | Confirm a payment | The receiver (or an admin) |
 | Undo a confirmed payment | The receiver or an admin |
-| Rename group, change roles, remove a member, delete group | Admins |
+| Rename group, change icon or note, change roles, remove a member, reset the join link, delete group | Admins |
 | Leave / be removed | Only at ₱0 balance |
 | Last admin leaves | The longest-standing member with an account becomes admin (guests can't be admins) |
 

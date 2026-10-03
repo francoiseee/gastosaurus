@@ -1,13 +1,10 @@
-import React from 'react';
 import mascotImg from '../assets/mascot.png';
 import { 
   Globe, 
   Calendar, 
   ReceiptIcon, 
   CalculatorIcon, 
-  HandshakeIcon,
-  ArrowRight,
-  LogIn
+  HandshakeIcon
 } from './CustomIcons';
 
 export const LandingPage = ({ onStartSaving, onOpenAuth, onOpenDashboard, isLoggedIn = false }) => {

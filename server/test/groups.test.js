@@ -4,9 +4,9 @@
 // share state.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { useHarness } from './helpers/harness.js';
+import { setupHarness } from './helpers/harness.js';
 
-const h = useHarness();
+const h = setupHarness();
 const s = {}; // shared state across steps
 
 const ok = (res, status = 200) => {
@@ -471,4 +471,32 @@ test('database safety nets: shares must equal the total, and RLS hides other gro
   } finally {
     rls.release();
   }
+});
+
+test('join by link: the share code adds you once; admins can reset it; bad codes are refused', async () => {
+  const { group } = ok(await h.call('POST', '/groups', { token: s.alex.token, body: { name: 'Link Party' } }), 201);
+  assert.match(group.inviteCode, /^[0-9a-f]{10}$/);
+
+  const dana = await h.login('dana@example.com', 'Dana');
+  const joined = ok(await h.call('POST', '/invites/join', { token: dana.token, body: { code: group.inviteCode } }));
+  assert.equal(joined.group.id, group.id);
+  assert.equal(joined.group.membersCount, 2);
+  // Joining twice changes nothing
+  ok(await h.call('POST', '/invites/join', { token: dana.token, body: { code: group.inviteCode.toUpperCase() } }));
+  assert.equal(ok(await h.call('GET', `/groups/${group.id}`, { token: dana.token })).members.length, 2);
+
+  // Only admins can reset; the old code then stops working
+  assert.equal((await h.call('POST', `/groups/${group.id}/invite-code`, { token: dana.token })).status, 403);
+  const reset = ok(await h.call('POST', `/groups/${group.id}/invite-code`, { token: s.alex.token }));
+  assert.notEqual(reset.group.inviteCode, group.inviteCode);
+  const eli = await h.login('eli@example.com', 'Eli');
+  assert.equal((await h.call('POST', '/invites/join', { token: eli.token, body: { code: group.inviteCode } })).status, 404);
+  assert.equal((await h.call('POST', '/invites/join', { token: eli.token, body: { code: 'nope!' } })).status, 400);
+});
+
+test('summary breaks monthly spending down by group category', async () => {
+  const { summary } = ok(await h.call('GET', '/me/summary?month=2026-10', { token: s.alex.token }));
+  const total = summary.spendingByCategory.reduce((a, c) => a + Math.round(c.amount * 100), 0);
+  assert.equal(total, Math.round(summary.personalSpending * 100));
+  assert.deepEqual(summary.spendingByCategory.map((c) => c.category), ['Travel & Trips']);
 });

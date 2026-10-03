@@ -18,4 +18,9 @@ export default defineConfig([
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
+  {
+    // The API (server/) runs on Node, not in the browser.
+    files: ['server/**/*.js'],
+    languageOptions: { globals: globals.node },
+  },
 ])

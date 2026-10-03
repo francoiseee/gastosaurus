@@ -1,80 +1,137 @@
-import React, { useState } from 'react';
-import { 
-  ArrowLeft, 
-  Bell, 
-  CreditCard, 
-  UserPlus, 
-  LogOut, 
-  Mail, 
-  X, 
-  Plus, 
-  Check, 
-  ReceiptText, 
-  Calendar, 
-  DollarSign, 
-  Sparkles,
-  Users
-} from './CustomIcons';
+import { useState } from 'react';
+import { ArrowLeft, Bell, CreditCard, UserPlus, LogOut, Mail, X, Calendar, DollarSign, Settings } from './CustomIcons';
 import LeaveGroupModal from './LeaveGroupModal';
+import Avatar from './Avatar';
+import { groupsApi, invitesApi } from '../lib/api';
+import { useAsync } from '../hooks/useAsync';
+import { peso, formatDate } from '../lib/format';
 
-export const GroupMembersView = ({ 
-  group, 
-  onBack, 
-  onViewSettlements, 
+// Donut chart colors, in member order.
+const SEGMENT_COLORS = ['#1E2026', '#6B4F75', '#C48CCF', '#D94668', '#E26D24', '#059669', '#4F67D8', '#D97706'];
+const CIRCUMFERENCE = 2 * Math.PI * 56;
+
+/** Each member's share of the group's bills, as donut segments. */
+function splitSegments(members) {
+  const total = members.reduce((sum, m) => sum + m.shareAmount, 0);
+  if (!total) return [];
+  let offset = 0;
+  return members
+    .filter((m) => m.shareAmount > 0)
+    .map((m, i) => {
+      const length = (m.shareAmount / total) * CIRCUMFERENCE;
+      const segment = {
+        id: m.id,
+        name: m.name,
+        percent: Math.round((m.shareAmount / total) * 100),
+        color: SEGMENT_COLORS[i % SEGMENT_COLORS.length],
+        dasharray: `${length} ${CIRCUMFERENCE - length}`,
+        dashoffset: -offset,
+      };
+      offset += length;
+      return segment;
+    });
+}
+
+export const GroupMembersView = ({
+  groupId,
+  refreshKey,
+  onBack,
+  onViewSettlements,
   onViewExpensesDetail,
-  onAddExpense, 
-  onLeaveGroup, 
-  onInviteMember, 
+  onAddExpense,
   onNavigateInviteMember,
-  onResendInvite, 
-  onCancelInvite,
+  onOpenDetails,
+  onLeft,
+  onChanged,
+  showToast,
   onOpenNotifications,
-  notifications = [],
-  unreadCount = 1
+  unreadCount = 0,
 }) => {
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
-  const [isExpensesDetailOpen, setIsExpensesDetailOpen] = useState(false);
-  const [resendStatus, setResendStatus] = useState({});
+  const [inviteFor, setInviteFor] = useState(null); // guest member id whose invite form is open
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  if (!group) return null;
+  const { data, error, loading } = useAsync(() => groupsApi.get(groupId), [groupId, refreshKey]);
 
-  const members = group.members || [];
-  const pendingInvites = group.pendingInvites || [];
-  const overallExpense = group.totalExpense || group.totalSpending || 485.50;
-  const noteText = group.note || '“Birthday dinner for Mike! Such a great time, everyone’s share includes the automatic 20% gratuity.”';
+  if (!data) {
+    return (
+      <div className="group-members-page-container animate-fade-in">
+        <div className="members-view-content">
+          <p className="members-subtitle">{error ? error.message : loading ? 'Loading group…' : ''}</p>
+          {error && (
+            <button className="btn-outline-pill" onClick={onBack}>
+              <ArrowLeft size={16} /> Back to groups
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
 
-  const handleOpenInvite = () => {
-    if (onNavigateInviteMember) {
-      onNavigateInviteMember();
+  const { group, members, pendingInvites } = data;
+  const isAdmin = group.myRole === 'admin';
+  const segments = splitSegments(members);
+
+  const run = async (action, successMessage) => {
+    setBusy(true);
+    try {
+      await action();
+      if (successMessage) showToast(successMessage);
+      onChanged();
+      return true;
+    } catch (err) {
+      showToast(err.message, 'error');
+      return false;
+    } finally {
+      setBusy(false);
     }
   };
 
-  const handleOpenLeaveModal = () => {
-    setIsLeaveModalOpen(true);
-  };
-
-  const handleConfirmLeave = () => {
+  const handleConfirmLeave = async () => {
     setIsLeaveModalOpen(false);
-    if (onLeaveGroup) {
-      onLeaveGroup(group.id);
+    setBusy(true);
+    try {
+      await groupsApi.leave(group.id);
+      onLeft(group.name);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setBusy(false);
     }
   };
 
-  const handleResend = (inviteId, email) => {
-    setResendStatus(prev => ({ ...prev, [inviteId]: 'Sent!' }));
-    if (onResendInvite) {
-      onResendInvite(group.id, inviteId, email);
+  // "Resend" = cancel the old invite and send a fresh one (and a fresh notification).
+  const handleResend = (invite) =>
+    run(async () => {
+      await invitesApi.cancel(invite.id);
+      await invitesApi.send(group.id, { email: invite.email, memberId: invite.memberId ?? undefined });
+    }, `Invite re-sent to ${invite.email} 📬`);
+
+  const handleCancelInvite = (invite) => run(() => invitesApi.cancel(invite.id), 'Invite cancelled.');
+
+  const handleInviteGuest = async (e, member) => {
+    e.preventDefault();
+    const ok = await run(
+      () => invitesApi.send(group.id, { email: inviteEmail.trim(), memberId: member.id }),
+      `Invited ${member.name} — they'll keep their spot and history when they join.`,
+    );
+    if (ok) {
+      setInviteFor(null);
+      setInviteEmail('');
     }
-    setTimeout(() => {
-      setResendStatus(prev => ({ ...prev, [inviteId]: null }));
-    }, 2500);
+  };
+
+  const handleRemoveMember = (member) => {
+    if (!window.confirm(`Remove ${member.name} from "${group.name}"?`)) return;
+    run(() => groupsApi.removeMember(group.id, member.id), `${member.name} was removed.`);
   };
 
   return (
     <div className="group-members-page-container animate-fade-in">
       {/* Top GastoFriends Header Bar */}
       <header className="gastofriends-header-bar">
-        <button 
+        <button
           className="btn-header-back"
           onClick={onBack}
           aria-label="Back to groups"
@@ -84,12 +141,12 @@ export const GroupMembersView = ({
           <ArrowLeft size={20} color="#1E2026" strokeWidth={2.2} />
         </button>
 
-        <h2 className="gastofriends-title">GastoSaurus</h2>
+        <h2 className="gastofriends-title">{group.name}</h2>
 
         <div className="gastofriends-actions">
-          <button 
-            className="header-notif-btn" 
-            onClick={onOpenNotifications} 
+          <button
+            className="header-notif-btn"
+            onClick={onOpenNotifications}
             aria-label="Notifications"
             id="btn-members-notif"
           >
@@ -99,26 +156,21 @@ export const GroupMembersView = ({
         </div>
       </header>
 
-      {/* Main Page Area */}
       <div className="members-view-content">
-        {/* Top Ambagan Tracker & Split Breakdown (Screenshot 1) */}
+        {/* Total spending, note, and who carries how much of it */}
         <div className="ambagan-tracker-section">
-          {/* Left Col: Total Amount & Note Card */}
           <div className="ambagan-left-card-box">
             <div className="ambagan-total-box">
               <span className="ambagan-total-label">TOTAL AMOUNT</span>
-              <h1 className="ambagan-total-amount">
-                ₱{Number(overallExpense).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </h1>
+              <h1 className="ambagan-total-amount">{peso(group.totalSpending)}</h1>
             </div>
 
             <div className="ambagan-note-card">
               <h3 className="ambagan-note-title">Note</h3>
-              <p className="ambagan-note-body">{noteText}</p>
+              <p className="ambagan-note-body">{group.note || 'No note yet. Admins can add one in Group Details.'}</p>
             </div>
           </div>
 
-          {/* Right Col: Split Breakdown Donut Card */}
           <div className="ambagan-breakdown-card">
             <div className="breakdown-card-header">
               <span className="breakdown-card-title">SPLIT BREAKDOWN</span>
@@ -127,63 +179,36 @@ export const GroupMembersView = ({
             <div className="breakdown-chart-wrapper">
               <div className="donut-chart-box">
                 <svg className="donut-svg" viewBox="0 0 160 160">
-                  {/* Background Ring Track */}
-                  <circle
-                    cx="80"
-                    cy="80"
-                    r="56"
-                    className="donut-bg-ring"
-                  />
-                  {/* Segment 1: Sarah 40% (#1E2026) -> 40% of 351.86 is 140.74 */}
-                  <circle
-                    cx="80"
-                    cy="80"
-                    r="56"
-                    className="donut-segment segment-sarah"
-                    strokeDasharray="140.74 211.12"
-                    strokeDashoffset="0"
-                  />
-                  {/* Segment 2: Mike 35% (#6B4F75) -> 35% of 351.86 is 123.15 */}
-                  <circle
-                    cx="80"
-                    cy="80"
-                    r="56"
-                    className="donut-segment segment-mike"
-                    strokeDasharray="123.15 228.71"
-                    strokeDashoffset="-140.74"
-                  />
-                  {/* Segment 3: Alex 25% (#C48CCF) -> 25% of 351.86 is 87.96 */}
-                  <circle
-                    cx="80"
-                    cy="80"
-                    r="56"
-                    className="donut-segment segment-alex"
-                    strokeDasharray="87.96 263.90"
-                    strokeDashoffset="-263.89"
-                  />
+                  <circle cx="80" cy="80" r="56" className="donut-bg-ring" />
+                  {segments.map((seg) => (
+                    <circle
+                      key={seg.id}
+                      cx="80"
+                      cy="80"
+                      r="56"
+                      className="donut-segment"
+                      style={{ stroke: seg.color }}
+                      strokeDasharray={seg.dasharray}
+                      strokeDashoffset={seg.dashoffset}
+                    />
+                  ))}
                 </svg>
-
-                {/* Center Counter */}
                 <div className="donut-center-info">
-                  <span className="donut-count">3</span>
+                  <span className="donut-count">{group.membersCount}</span>
                   <span className="donut-label">Members</span>
                 </div>
               </div>
 
-              {/* Breakdown Legend Row */}
               <div className="breakdown-legend-row">
-                <div className="legend-item">
-                  <span className="legend-bullet bullet-sarah" />
-                  <span className="legend-text">Sarah (40%)</span>
-                </div>
-                <div className="legend-item">
-                  <span className="legend-bullet bullet-mike" />
-                  <span className="legend-text">Mike (35%)</span>
-                </div>
-                <div className="legend-item">
-                  <span className="legend-bullet bullet-alex" />
-                  <span className="legend-text">Alex (25%)</span>
-                </div>
+                {segments.length === 0 && <span className="legend-text">No expenses yet</span>}
+                {segments.map((seg) => (
+                  <div className="legend-item" key={seg.id}>
+                    <span className="legend-bullet" style={{ backgroundColor: seg.color }} />
+                    <span className="legend-text">
+                      {seg.name} ({seg.percent}%)
+                    </span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
@@ -196,25 +221,20 @@ export const GroupMembersView = ({
             <p className="members-subtitle">Manage members for '{group.name}'</p>
           </div>
 
-          {/* Desktop Top Actions */}
           <div className="members-top-actions desktop-only">
-            <button 
-              className="btn-outline-pill"
-              onClick={onViewSettlements}
-              id="btn-desktop-view-settlements"
-            >
+            <button className="btn-outline-pill" onClick={onOpenDetails} id="btn-desktop-group-details">
+              <Settings size={16} /> Group Details
+            </button>
+            <button className="btn-outline-pill" onClick={onViewSettlements} id="btn-desktop-view-settlements">
               <CreditCard size={16} /> View Settlements
             </button>
-            <button 
-              className="btn-outline-pill"
-              onClick={handleOpenInvite}
-              id="btn-desktop-invite-member"
-            >
+            <button className="btn-outline-pill" onClick={onNavigateInviteMember} id="btn-desktop-invite-member">
               <UserPlus size={16} /> Invite Member
             </button>
-            <button 
+            <button
               className="btn-danger-pill"
-              onClick={handleOpenLeaveModal}
+              onClick={() => setIsLeaveModalOpen(true)}
+              disabled={busy}
               id="btn-desktop-leave-group"
             >
               <LogOut size={16} /> Leave Group
@@ -222,33 +242,25 @@ export const GroupMembersView = ({
           </div>
         </div>
 
-        {/* Mobile Top Actions Stack (Matching Screenshot 2 & 5) */}
+        {/* Mobile Top Actions Stack */}
         <div className="members-mobile-actions-stack mobile-only">
-          <button 
-            className="btn-mobile-action-card"
-            onClick={handleOpenInvite}
-            id="btn-mobile-invite-member"
-          >
+          <button className="btn-mobile-action-card" onClick={onNavigateInviteMember} id="btn-mobile-invite-member">
             Invite Member
           </button>
-          <button 
-            className="btn-mobile-action-card"
-            onClick={() => onViewExpensesDetail ? onViewExpensesDetail() : setIsExpensesDetailOpen(true)}
-            id="btn-mobile-expenses-detail"
-          >
+          <button className="btn-mobile-action-card" onClick={onViewExpensesDetail} id="btn-mobile-expenses-detail">
             Expenses Detail
           </button>
+          <button className="btn-mobile-action-card" onClick={onOpenDetails} id="btn-mobile-group-details">
+            Group Details
+          </button>
           <div className="mobile-action-row-split">
-            <button 
-              className="btn-mobile-action-pill"
-              onClick={onViewSettlements}
-              id="btn-mobile-view-settlements"
-            >
+            <button className="btn-mobile-action-pill" onClick={onViewSettlements} id="btn-mobile-view-settlements">
               <CreditCard size={16} /> View Settlements
             </button>
-            <button 
+            <button
               className="btn-mobile-action-pill danger"
-              onClick={handleOpenLeaveModal}
+              onClick={() => setIsLeaveModalOpen(true)}
+              disabled={busy}
               id="btn-mobile-leave-group"
             >
               <LogOut size={16} /> Leave Group
@@ -258,209 +270,134 @@ export const GroupMembersView = ({
 
         {/* Members Cards Grid */}
         <div className="members-cards-grid">
-          {members.map((member) => {
-            const isAdmin = member.role === 'Admin';
-            return (
-              <div key={member.id || member.name} className="member-profile-card">
-                <div className="member-profile-left">
-                  {/* Avatar with optional online dot */}
-                  <div className="member-avatar-wrapper">
-                    {member.avatarType === 'image' && member.avatarUrl ? (
-                      <img 
-                        src={member.avatarUrl} 
-                        alt={member.name} 
-                        className="member-avatar-img" 
-                      />
-                    ) : (
-                      <div className="member-initials-badge">
-                        {member.initials || (member.name ? member.name.substring(0, 2).toUpperCase() : 'ME')}
-                      </div>
-                    )}
-                    {member.isOnline && <span className="online-indicator-dot" />}
+          {members.map((member) => (
+            <div key={member.id} className="member-profile-card">
+              <div className="member-profile-left">
+                <div className="member-avatar-wrapper">
+                  <Avatar person={member} className="member-initials-badge" />
+                </div>
+
+                <div className="member-profile-info">
+                  <div className="member-name-row">
+                    <span className="profile-name">{member.name}</span>
+                    {member.isCurrentUser && <span className="badge-you-pill">YOU</span>}
+                  </div>
+                  <span className="profile-email">{member.email || 'Guest — no account yet'}</span>
+                  <div className="profile-meta-row">
+                    <span className="meta-spent" title="Paid on behalf of the group">
+                      <DollarSign size={13} className="meta-svg" /> {peso(member.spentAmount)}
+                    </span>
+                    <span className="meta-date">
+                      <Calendar size={13} className="meta-svg" /> {formatDate(member.joinedAt)}
+                    </span>
                   </div>
 
-                  {/* Details */}
-                  <div className="member-profile-info">
-                    <div className="member-name-row">
-                      <span className="profile-name">{member.name}</span>
-                      {member.isCurrentUser && (
-                        <span className="badge-you-pill">YOU</span>
-                      )}
-                    </div>
-                    <span className="profile-email">{member.email || `${member.name.toLowerCase()}@example.com`}</span>
-                    <div className="profile-meta-row">
-                      <span className="meta-spent">
-                        <DollarSign size={13} className="meta-svg" /> ₱{Number(member.spentAmount || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
-                      </span>
-                      <span className="meta-date">
-                        <Calendar size={13} className="meta-svg" /> {member.joinedDate || 'Jan 12, 2024'}
-                      </span>
-                    </div>
+                  {inviteFor === member.id && (
+                    <form className="add-member-input-row" onSubmit={(e) => handleInviteGuest(e, member)}>
+                      <input
+                        type="email"
+                        className="form-input member-quick-input"
+                        placeholder={`${member.name}'s email`}
+                        value={inviteEmail}
+                        onChange={(e) => setInviteEmail(e.target.value)}
+                        autoFocus
+                        required
+                      />
+                      <button type="submit" className="btn-add-member" disabled={busy}>
+                        Send
+                      </button>
+                    </form>
+                  )}
+                </div>
+              </div>
+
+              <div className="member-profile-right">
+                <span className={`role-badge ${member.role === 'admin' ? 'admin' : 'member'}`}>
+                  {member.role === 'admin' ? 'Admin' : member.isGuest ? 'Guest' : 'Member'}
+                </span>
+                {member.isGuest && !pendingInvites.some((i) => i.memberId === member.id) && (
+                  <button
+                    className="btn-resend-invite"
+                    onClick={() => setInviteFor(inviteFor === member.id ? null : member.id)}
+                    title="Invite this guest by email so they can claim their spot"
+                  >
+                    {inviteFor === member.id ? 'Close' : 'Invite'}
+                  </button>
+                )}
+                {isAdmin && !member.isCurrentUser && (
+                  <button
+                    className="btn-dismiss-invite"
+                    onClick={() => handleRemoveMember(member)}
+                    aria-label={`Remove ${member.name}`}
+                    title="Remove from group (only when settled)"
+                    disabled={busy}
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+
+          {/* Pending Invites */}
+          {pendingInvites.map((invite) => {
+            const guest = members.find((m) => m.id === invite.memberId);
+            return (
+              <div key={invite.id} className="pending-invite-card">
+                <div className="pending-invite-left">
+                  <div className="pending-icon-wrap">
+                    <Mail size={20} color="#7E8492" />
+                  </div>
+                  <div className="pending-info">
+                    <h4 className="pending-title">{guest ? `${guest.name} (invited)` : 'Pending Invite'}</h4>
+                    <span className="pending-email">{invite.email}</span>
+                    <span className="pending-status">🕒 Sent {formatDate(invite.createdAt)} · waiting for response</span>
                   </div>
                 </div>
 
-                {/* Role Badge */}
-                <div className="member-profile-right">
-                  <span className={`role-badge ${isAdmin ? 'admin' : 'member'}`}>
-                    {member.role || 'Member'}
-                  </span>
+                <div className="pending-invite-actions">
+                  <button className="btn-resend-invite" onClick={() => handleResend(invite)} disabled={busy}>
+                    Resend
+                  </button>
+                  <button
+                    className="btn-dismiss-invite"
+                    onClick={() => handleCancelInvite(invite)}
+                    aria-label="Cancel invite"
+                    title="Cancel invite"
+                    disabled={busy}
+                  >
+                    <X size={16} />
+                  </button>
                 </div>
               </div>
             );
           })}
-
-          {/* Pending Invites Card (Dashed Pink Border) */}
-          {pendingInvites.map((invite) => (
-            <div key={invite.id || invite.email} className="pending-invite-card">
-              <div className="pending-invite-left">
-                <div className="pending-icon-wrap">
-                  <Mail size={20} color="#7E8492" />
-                </div>
-                <div className="pending-info">
-                  <h4 className="pending-title">{invite.name || 'Pending Invite'}</h4>
-                  <span className="pending-email">{invite.email}</span>
-                  <span className="pending-status">
-                    🕒 {invite.status || 'Waiting for response...'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="pending-invite-actions">
-                <button 
-                  className="btn-resend-invite"
-                  onClick={() => handleResend(invite.id, invite.email)}
-                >
-                  {resendStatus[invite.id] || 'Resend'}
-                </button>
-                <button 
-                  className="btn-dismiss-invite"
-                  onClick={() => onCancelInvite && onCancelInvite(group.id, invite.id)}
-                  aria-label="Cancel invite"
-                  title="Cancel invite"
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            </div>
-          ))}
         </div>
 
         {/* Desktop Bottom Action Dock */}
         <div className="desktop-bottom-actions-dock desktop-only">
-          <button 
-            className="btn-expenses-detail-dock"
-            onClick={() => onViewExpensesDetail ? onViewExpensesDetail() : setIsExpensesDetailOpen(true)}
-            id="btn-desktop-expenses-detail"
-          >
+          <button className="btn-expenses-detail-dock" onClick={onViewExpensesDetail} id="btn-desktop-expenses-detail">
             Expenses Detail
           </button>
-          <button 
-            className="btn-add-expenses-dock"
-            onClick={onAddExpense}
-            id="btn-desktop-add-expenses"
-          >
+          <button className="btn-add-expenses-dock" onClick={onAddExpense} id="btn-desktop-add-expenses">
             Add Expenses
           </button>
         </div>
 
         {/* Mobile Bottom Fixed Action */}
         <div className="mobile-bottom-dock mobile-only">
-          <button 
-            className="btn-mobile-add-expenses"
-            onClick={onAddExpense}
-            id="btn-mobile-add-expenses"
-          >
+          <button className="btn-mobile-add-expenses" onClick={onAddExpense} id="btn-mobile-add-expenses">
             Add Expenses
           </button>
         </div>
       </div>
 
-      {/* Leave Group Modal (Matching Screenshots 1 & 2) */}
       <LeaveGroupModal
         isOpen={isLeaveModalOpen}
         onClose={() => setIsLeaveModalOpen(false)}
         onConfirm={handleConfirmLeave}
         groupName={group.name}
       />
-
-      {/* Expenses Detail Modal */}
-      {isExpensesDetailOpen && (
-        <div className="modal-backdrop" onClick={() => setIsExpensesDetailOpen(false)}>
-          <div className="expenses-breakdown-modal-card animate-fade-in" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <div className="modal-title-box">
-                <div className="modal-icon-badge">
-                  <ReceiptText size={20} color="#E2486E" />
-                </div>
-                <div>
-                  <h3 className="modal-title-heading">Expenses Breakdown</h3>
-                  <span className="modal-sub">Recent expenses and totals for {group.name}</span>
-                </div>
-              </div>
-              <button 
-                className="modal-close-btn" 
-                onClick={() => setIsExpensesDetailOpen(false)}
-                aria-label="Close modal"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="expenses-breakdown-content">
-              {/* Total Shared Spending Card */}
-              <div className="expenses-total-card">
-                <span className="stat-label">TOTAL SHARED SPENDING</span>
-                <h2 className="stat-amount">
-                  ₱{(group.totalSpending !== undefined ? group.totalSpending : (group.expenses && group.expenses.length > 0 ? group.expenses.reduce((a, c) => a + Number(c.amount || 0), 0) : 2510.50)).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </h2>
-                <span className="stat-subtext">
-                  Split automatically across {group.membersCount || (group.members ? group.members.length : 2)} members
-                </span>
-              </div>
-
-              {/* Recent Group Expenses Card */}
-              <div className="expenses-recent-card">
-                <span className="expenses-recent-title">Recent Group Expenses</span>
-                <div className="expenses-list-container">
-                  {(group.expenses && group.expenses.length > 0 ? group.expenses : [
-                    {
-                      id: 'exp-default-1',
-                      name: group.recentExpense || 'Meralco Bill & Water',
-                      amount: 1850.00,
-                      splitType: 'Split Equally'
-                    },
-                    {
-                      id: 'exp-default-2',
-                      name: 'Snacks, Drinks & Extra Rice',
-                      amount: 660.50,
-                      splitType: 'Itemized'
-                    }
-                  ]).map((exp, idx) => (
-                    <div key={exp.id || idx} className="expense-row-item">
-                      <div className="expense-row-info">
-                        <span className="expense-item-title">{exp.name || exp.title}</span>
-                        <span className="expense-split-badge">{exp.splitType || 'Split Equally'}</span>
-                      </div>
-                      <span className="expense-item-amount">
-                        ₱{Number(exp.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="modal-actions-full">
-              <button 
-                className="btn-expenses-close" 
-                onClick={() => setIsExpensesDetailOpen(false)}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

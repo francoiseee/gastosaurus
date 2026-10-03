@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { ReceiptIcon, Plus, Check, Trash2, X, Users, User } from './CustomIcons';
 import ribbonIcon from '../assets/ribbon.png';
 

@@ -2,16 +2,11 @@
 //   groupExpensesRouter → mounted at /api/groups/:groupId/expenses (caller already checked as a member)
 //   expensesRouter      → mounted at /api/expenses/:expenseId
 import { Router } from 'express';
-import { z } from 'zod';
 import { requireAuth } from '../../middleware/requireAuth.js';
 import { validateBody } from '../../middleware/validate.js';
+import { paging } from '../../lib/validators.js';
 import { expenseSchema, expenseDetailsSchema } from './expenses.validation.js';
 import * as service from './expenses.service.js';
-
-const paging = z.object({
-  limit: z.coerce.number().int().min(1).max(100).catch(50),
-  offset: z.coerce.number().int().min(0).catch(0),
-});
 
 export const groupExpensesRouter = Router({ mergeParams: true });
 

@@ -35,9 +35,12 @@ Check it's alive at http://localhost:4000/api/health. Run the frontend from the 
 | Groups | `GET/POST /api/groups` · `GET/PATCH/DELETE /api/groups/:groupId` |
 | Members | `POST /api/groups/:groupId/members` · `PATCH/DELETE /api/groups/:groupId/members/:memberId` · `DELETE /api/groups/:groupId/members/me` |
 | Invites | `POST /api/groups/:groupId/invites` · `GET /api/invites` · `POST /api/invites/:id/accept` · `POST /api/invites/:id/decline` · `DELETE /api/invites/:id` |
+| Join links | `POST /api/invites/join` `{ code }` · `POST /api/groups/:groupId/invite-code` (admin: reset) |
 | Expenses | `GET/POST /api/groups/:groupId/expenses` · `GET/PATCH/DELETE /api/expenses/:id` |
 | Balances | `GET /api/groups/:groupId/balances` |
 | Payments | `GET/POST /api/groups/:groupId/settlements` · `PATCH/DELETE /api/settlements/:id` |
+| Notifications | `GET /api/notifications` · `PATCH /api/notifications/:id/read` · `POST /api/notifications/read-all` · `DELETE /api/notifications/:id` |
+| Reminders | `POST /api/groups/:groupId/reminders` |
 
 Request and response shapes are in [`../docs/ARCHITECTURE.md`](../docs/ARCHITECTURE.md) §6. The splitting math is explained in [`../docs/HOW-THE-MONEY-WORKS.md`](../docs/HOW-THE-MONEY-WORKS.md).
 
@@ -49,7 +52,7 @@ curl http://localhost:4000/api/me -H "Authorization: Bearer <token>"
 
 ## Tests
 
-Tests run against a **local** throwaway Postgres (never Supabase) and a fake Supabase Auth server that the tests start themselves. `test/splitting.test.js` covers the algorithm alone; `test/groups.test.js` walks a whole barkada through the API (create → split → claim invite → settle → leave). Test files run one at a time because they share the test database.
+Tests run against a **local** throwaway Postgres (never Supabase) and a fake Supabase Auth server that the tests start themselves. `test/splitting.test.js` covers the algorithm alone. `test/groups.test.js` walks a whole barkada through the API (create → split → claim invite → settle → leave), and `test/notifications.test.js` checks who gets notified about what. Test files run one at a time because they share the test database.
 
 ```bash
 createdb gastosaurus_test           # needs a local Postgres, e.g. Postgres.app on Mac
@@ -61,7 +64,7 @@ npm test
 
 Schema lives in [`../supabase/migrations/`](../supabase/migrations). To add a table, create a new numbered `.sql` file (with RLS policies) and apply it through the Supabase dashboard's SQL editor or the Supabase CLI.
 
-**Phase 2 needs two new migrations on Supabase**, applied in order: `20261003020000_create_groups.sql`, then `20261003030000_create_expenses_and_settlements.sql`. Paste each one into **SQL Editor → New query → Run**. Then check **Advisors** for warnings. The tests apply every migration automatically.
+All migrations in the folder are already applied on the `gastosaurus` Supabase project. For a new one, paste it into **SQL Editor → New query → Run**, then check **Advisors** for warnings. The tests apply every migration automatically.
 
 ## Adding a feature module
 

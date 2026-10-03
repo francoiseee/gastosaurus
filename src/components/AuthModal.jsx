@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import mascotImg from '../assets/mascot.png';
 import { supabase, isSupabaseConfigured, setRememberMe as saveRememberMe, friendlyAuthError } from '../lib/supabase';
 import {

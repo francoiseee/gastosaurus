@@ -1,4 +1,3 @@
-import React from 'react';
 import { getGroupIconSrc, GROUP_ICONS } from '../data/groupIcons';
 
 /**

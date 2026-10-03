@@ -30,3 +30,9 @@ export function peso({ min = 'positive', allowNegative = false, label = 'Amount'
 
 /** 'YYYY-MM-DD' calendar date. */
 export const isoDate = z.iso.date('Use a date like 2026-10-03.');
+
+/** ?limit=&offset= on list endpoints. Bad values fall back to the defaults. */
+export const paging = z.object({
+  limit: z.coerce.number().int().min(1).max(100).catch(50),
+  offset: z.coerce.number().int().min(0).catch(0),
+});

@@ -1,22 +1,23 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import mascotImg from '../assets/mascot.png';
-import { 
-  ArrowLeft, 
-  ArrowRight, 
-  Bell, 
-  Delete, 
-  Plus, 
-  Check, 
-  CheckCircle2,
-  Users
-} from './CustomIcons';
+import { ArrowLeft, ArrowRight, Bell, Delete, Plus, CheckCircle2, ChevronDown } from './CustomIcons';
+import Avatar from './Avatar';
+import { groupsApi } from '../lib/api';
+import { useAsync } from '../hooks/useAsync';
 
+/**
+ * Step 1 of adding an expense: type an amount, name the item, pick who it's for.
+ * Continue hands { name, price, memberIds } to the item-split screen, where more
+ * items can be added before saving.
+ */
 export const AddExpenseCalculatorView = ({
-  group,
+  groups = [],
+  groupId,
+  onChangeGroup,
   onBack,
   onContinue,
-  notifications = [],
-  unreadCount = 1
+  onOpenNotifications,
+  unreadCount = 0,
 }) => {
   // Keypad display state (string representation of number)
   const [amountStr, setAmountStr] = useState('0.00');
@@ -24,41 +25,21 @@ export const AddExpenseCalculatorView = ({
   const [toastMessage, setToastMessage] = useState(null);
   const amountInputRef = useRef(null);
 
-  // Default members matching Screenshot 2
-  const [members, setMembers] = useState([
-    {
-      id: 'mem-you',
-      name: 'You',
-      avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=120&auto=format&fit=crop&q=80',
-      avatarEmoji: '🦖',
-      selected: true
-    },
-    {
-      id: 'mem-sarah',
-      name: 'Sarah',
-      avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80',
-      avatarEmoji: '🦊',
-      selected: true
-    },
-    {
-      id: 'mem-mike',
-      name: 'Mike',
-      avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=120&auto=format&fit=crop&q=80',
-      avatarEmoji: '🐻',
-      selected: true
-    },
-    {
-      id: 'mem-emma',
-      name: 'Emma',
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
-      avatarEmoji: '🐨',
-      selected: false
-    }
-  ]);
+  // The group's members; everyone starts selected ("For Whom?").
+  const { data, reload } = useAsync(() => groupsApi.get(groupId), [groupId]);
+  const groupMembers = data?.members ?? [];
+  const [deselected, setDeselected] = useState(() => new Set());
+  const members = groupMembers.map((m) => ({ ...m, selected: !deselected.has(m.id) }));
 
-  // Modal / Inline prompt to add new member
+  // Inline "add a friend" form (creates a guest member in the group)
   const [isAddingPerson, setIsAddingPerson] = useState(false);
   const [newPersonName, setNewPersonName] = useState('');
+  const [isSavingPerson, setIsSavingPerson] = useState(false);
+
+  const flash = (message) => {
+    setToastMessage(message);
+    setTimeout(() => setToastMessage(null), 3500);
+  };
 
   // Handle on-screen calculator keypad press
   const handleKeyPress = (key) => {
@@ -165,56 +146,49 @@ export const AddExpenseCalculatorView = ({
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [amountStr]);
 
-  // Toggle member selection
   const toggleMember = (id) => {
-    setMembers((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, selected: !m.selected } : m))
-    );
+    setDeselected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
-  // Select all / Deselect all
   const handleSelectAll = () => {
     const allSelected = members.every((m) => m.selected);
-    setMembers((prev) => prev.map((m) => ({ ...m, selected: !allSelected })));
+    setDeselected(allSelected ? new Set(members.map((m) => m.id)) : new Set());
   };
 
-  // Add new member
-  const handleAddNewMember = (e) => {
+  // Add a friend to the group as a guest (no account needed).
+  const handleAddNewMember = async (e) => {
     e.preventDefault();
-    if (!newPersonName.trim()) return;
-
-    const newMem = {
-      id: `mem-${Date.now()}`,
-      name: newPersonName.trim(),
-      avatarUrl: `https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80`,
-      avatarEmoji: '🐼',
-      selected: true
-    };
-
-    setMembers([...members, newMem]);
-    setNewPersonName('');
-    setIsAddingPerson(false);
+    const name = newPersonName.trim();
+    if (!name) return;
+    setIsSavingPerson(true);
+    try {
+      await groupsApi.addMember(groupId, { name });
+      await reload();
+      setNewPersonName('');
+      setIsAddingPerson(false);
+      flash(`Added ${name} to the group ✨`);
+    } catch (err) {
+      flash(err.message);
+    } finally {
+      setIsSavingPerson(false);
+    }
   };
 
-  // Computed numeric amount
-  const parsedAmount = parseFloat(amountStr) || 0;
+  const parsedAmount = Math.round((parseFloat(amountStr) || 0) * 100) / 100;
 
-  // Handle Continue action -> Pass to Itemized Split page
   const handleContinue = () => {
     const selectedList = members.filter((m) => m.selected);
-    if (selectedList.length === 0) {
-      setToastMessage('Please select at least one person for this expense.');
-      setTimeout(() => setToastMessage(null), 3000);
-      return;
-    }
-
-    if (onContinue) {
-      onContinue({
-        amount: parsedAmount > 0 ? parsedAmount : 145.00,
-        itemName: itemName.trim() || 'Yabu Dinner',
-        selectedMembers: selectedList
-      });
-    }
+    if (parsedAmount <= 0) return flash('Enter how much it cost first.');
+    if (selectedList.length === 0) return flash('Please select at least one person for this expense.');
+    return onContinue(
+      { name: itemName.trim() || 'Expense', price: parsedAmount, memberIds: selectedList.map((m) => m.id) },
+      groupMembers,
+    );
   };
 
   return (
@@ -233,7 +207,7 @@ export const AddExpenseCalculatorView = ({
         <h2 className="calc-header-title">Add Expenses</h2>
 
         <div className="calc-header-actions">
-          <button className="header-notif-btn" aria-label="Notifications">
+          <button className="header-notif-btn" aria-label="Notifications" onClick={onOpenNotifications}>
             <Bell size={20} color="#1E2026" />
             {unreadCount > 0 && <span className="header-notif-dot" />}
           </button>
@@ -328,6 +302,25 @@ export const AddExpenseCalculatorView = ({
           {/* Right Column: For Whom? Card */}
           <div className="calc-right-col">
             <div className="for-whom-card">
+              {groups.length > 1 && (
+                <div className="custom-select-wrapper" style={{ marginBottom: 14 }}>
+                  <select
+                    className="form-select custom-select-input"
+                    value={groupId}
+                    onChange={(e) => onChangeGroup(e.target.value)}
+                    aria-label="Group"
+                  >
+                    {groups.map((g) => (
+                      <option key={g.id} value={g.id}>
+                        {g.name}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="custom-select-arrow" aria-hidden="true">
+                    <ChevronDown size={18} strokeWidth={2.2} />
+                  </div>
+                </div>
+              )}
               <div className="for-whom-header">
                 <h3 className="for-whom-title">For Whom?</h3>
                 <button 
@@ -353,16 +346,12 @@ export const AddExpenseCalculatorView = ({
                     id={`avatar-item-${mem.id}`}
                   >
                     <div className="avatar-circle-wrapper">
-                      <img 
-                        src={mem.avatarUrl} 
-                        alt={mem.name} 
-                        className="avatar-face-img" 
-                      />
+                      <Avatar person={mem} className="avatar-face-img" />
                       {mem.selected && (
                         <div className="avatar-active-ring" />
                       )}
                     </div>
-                    <span className="avatar-person-label">{mem.name}</span>
+                    <span className="avatar-person-label">{mem.isCurrentUser ? 'You' : mem.name}</span>
                   </div>
                 ))}
 
@@ -393,7 +382,9 @@ export const AddExpenseCalculatorView = ({
                     autoFocus
                   />
                   <div className="inline-form-actions">
-                    <button type="submit" className="btn-inline-add">Add</button>
+                    <button type="submit" className="btn-inline-add" disabled={isSavingPerson}>
+                      {isSavingPerson ? 'Adding…' : 'Add'}
+                    </button>
                     <button type="button" className="btn-inline-cancel" onClick={() => setIsAddingPerson(false)}>Cancel</button>
                   </div>
                 </form>

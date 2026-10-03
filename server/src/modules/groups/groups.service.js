@@ -15,14 +15,10 @@ import { HttpError } from '../../utils/HttpError.js';
 import { formatPeso } from '../../lib/money.js';
 import * as profiles from '../profile/profile.repository.js';
 import * as invitesRepo from '../invites/invites.repository.js';
+import * as notify from '../notifications/notify.js';
 import { createInviteTx } from '../invites/invites.service.js';
 import { assertAdmin, assertUuid } from './membership.js';
 import * as repo from './groups.repository.js';
-
-async function ensureProfile(user) {
-  const fallbackName = (user.name || user.email?.split('@')[0] || 'Budget Dino').slice(0, 60);
-  return (await profiles.findById(user.id)) ?? (await profiles.ensureExists(user.id, fallbackName));
-}
 
 async function groupDetail(groupId, user) {
   const [summary, members, invites] = await Promise.all([
@@ -45,7 +41,7 @@ export async function listMyGroups(user) {
 
 // POST /api/groups
 export async function createGroup(user, { members = [], ...fields }) {
-  const profile = await ensureProfile(user);
+  const profile = await profiles.getOrCreate(user);
 
   const seenNames = new Set([profile.name.toLowerCase()]);
   const seenEmails = new Set(user.email ? [user.email.toLowerCase()] : []);
@@ -82,6 +78,13 @@ export async function getGroup(user, member) {
 export async function updateGroup(user, member, fields) {
   assertAdmin(member, 'Only a group admin can edit the group.');
   await repo.updateGroup(member.group_id, fields);
+  return groupDetail(member.group_id, user);
+}
+
+// POST /api/groups/:groupId/invite-code  (admin) — invalidate the old join link
+export async function rotateInviteCode(user, member) {
+  assertAdmin(member, 'Only a group admin can reset the invite link.');
+  await repo.rotateInviteCode(member.group_id);
   return groupDetail(member.group_id, user);
 }
 
@@ -147,7 +150,7 @@ async function assertSettled(memberId, who, db) {
 }
 
 // DELETE /api/groups/:groupId/members/:memberId  (admin removes someone)
-export async function removeMember(member, targetId) {
+export async function removeMember(user, member, targetId) {
   assertAdmin(member, 'Only a group admin can remove members.');
   assertUuid(targetId, 'Member');
   if (targetId === member.id) throw HttpError.badRequest('To leave the group, use "Leave group".');
@@ -158,6 +161,7 @@ export async function removeMember(member, targetId) {
     await assertSettled(targetId, target.name, db);
     await repo.markLeft(targetId, db);
     await invitesRepo.cancelPendingForMember(targetId, db);
+    await notify.memberRemoved(db, { groupId: member.group_id, actorId: user.id, removedUserId: target.user_id });
   });
 }
 

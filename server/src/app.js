@@ -9,6 +9,7 @@ import { groupsRouter } from './modules/groups/groups.routes.js';
 import { invitesRouter } from './modules/invites/invites.routes.js';
 import { expensesRouter } from './modules/expenses/expenses.routes.js';
 import { settlementsRouter } from './modules/settlements/settlements.routes.js';
+import { notificationsRouter } from './modules/notifications/notifications.routes.js';
 import { notFoundHandler, errorHandler } from './middleware/errorHandler.js';
 
 export function createApp() {
@@ -28,7 +29,7 @@ export function createApp() {
   app.use('/api/invites', invitesRouter);
   app.use('/api/expenses', expensesRouter);
   app.use('/api/settlements', settlementsRouter);
-  // Next (Phase 5, see docs/ARCHITECTURE.md): app.use('/api/notifications', notificationsRouter);
+  app.use('/api/notifications', notificationsRouter);
 
   app.use('/api', notFoundHandler);
   app.use(errorHandler);

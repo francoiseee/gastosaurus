@@ -5,7 +5,7 @@
 //   • the Express app on a random port
 //
 // Usage (in a *.test.js file):
-//   const h = useHarness();
+//   const h = setupHarness();
 //   test('...', async () => { const alex = await h.login('alex@example.com', 'Alex'); await h.call('GET', '/me', { token: alex.token }); });
 import { before, after } from 'node:test';
 import http from 'node:http';
@@ -18,7 +18,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 export const ISSUER = `${SUPABASE_URL}/auth/v1`;
 const migrationsDir = new URL('../../../supabase/migrations/', import.meta.url);
 
-export function useHarness() {
+export function setupHarness() {
   const h = { pool, hsTokens: new Map(), api: null, privateKey: null };
   let apiServer;
   let fakeAuth;

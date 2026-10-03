@@ -1,72 +1,74 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import mascotImg from '../assets/mascot.png';
-import { 
-  ArrowLeft, 
-  ArrowRight, 
-  Link2, 
-  Copy, 
-  ClipboardCheck, 
-  Mail, 
-  CheckCircle2, 
-  Sparkles,
-  Users
-} from './CustomIcons';
+import { ArrowLeft, ArrowRight, Link2, Copy, ClipboardCheck, Mail, CheckCircle2, RefreshCw } from './CustomIcons';
+import { groupsApi, invitesApi, inviteLinkFor } from '../lib/api';
+import { useAsync } from '../hooks/useAsync';
 
-export const InviteMemberView = ({ 
-  group, 
-  onBack, 
-  onContinue,
-  onInviteMember,
-  notifications = [], 
-  unreadCount = 1 
-}) => {
-  const groupName = group?.name || 'Weekend Getaway';
-  const inviteCode = group?.id ? group.id.replace('group-', '') : 'wg-92xj4';
-  const inviteLink = `https://gastosaurus.app/join/${inviteCode}`;
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export const InviteMemberView = ({ groupId, onBack, onContinue, onChanged, showToast }) => {
+  const [linkVersion, setLinkVersion] = useState(0);
+  const { data } = useAsync(() => groupsApi.get(groupId), [groupId, linkVersion]);
+  const group = data?.group;
+  const inviteLink = group ? inviteLinkFor(group.inviteCode) : 'Loading…';
 
   const [copied, setCopied] = useState(false);
   const [emailsText, setEmailsText] = useState('');
   const [toastMessage, setToastMessage] = useState(null);
+  const [isSending, setIsSending] = useState(false);
 
   // Copy link to clipboard
-  const handleCopyLink = () => {
-    navigator.clipboard?.writeText(inviteLink).then(() => {
+  const handleCopyLink = async () => {
+    if (!group) return;
+    try {
+      await navigator.clipboard.writeText(inviteLink);
       setCopied(true);
       setToastMessage('Invite link copied to clipboard! 📋');
       setTimeout(() => setCopied(false), 2500);
-      setTimeout(() => setToastMessage(null), 3000);
-    }).catch(() => {
-      setCopied(true);
-      setToastMessage('Invite link copied! 📋');
-      setTimeout(() => setCopied(false), 2500);
-      setTimeout(() => setToastMessage(null), 3000);
-    });
+    } catch {
+      document.getElementById('squad-invite-link-field')?.select();
+      setToastMessage('Press Ctrl+C (or ⌘C) to copy the selected link.');
+    }
   };
 
-  // Handle Continue action
-  const handleContinueAction = () => {
-    if (emailsText.trim()) {
-      const emailList = emailsText
-        .split(',')
-        .map(e => e.trim())
-        .filter(e => e.length > 0);
+  const handleResetLink = async () => {
+    if (!window.confirm('Make a new link? People with the old link will no longer be able to join.')) return;
+    try {
+      await groupsApi.resetInviteLink(groupId);
+      setLinkVersion((v) => v + 1);
+      setToastMessage('New invite link ready. The old one no longer works.');
+    } catch (err) {
+      setToastMessage(err.message);
+    }
+  };
 
-      emailList.forEach(email => {
-        if (onInviteMember && group) {
-          onInviteMember(group.id, {
-            name: email.split('@')[0],
-            email: email,
-            role: 'Member'
-          });
-        }
-      });
+  // Send email invites (if any were typed), then continue to the group.
+  const handleContinueAction = async () => {
+    const emails = [...new Set(emailsText.split(/[,\s;]+/).map((e) => e.trim().toLowerCase()).filter(Boolean))];
+    if (!emails.length) return onContinue();
+
+    const invalid = emails.filter((e) => !EMAIL.test(e));
+    if (invalid.length) {
+      setToastMessage(`Check these emails: ${invalid.join(', ')}`);
+      return undefined;
     }
 
-    if (onContinue) {
-      onContinue();
-    } else if (onBack) {
-      onBack();
+    setIsSending(true);
+    const results = await Promise.allSettled(emails.map((email) => invitesApi.send(groupId, { email })));
+    setIsSending(false);
+    const failed = results
+      .map((r, i) => (r.status === 'rejected' ? `${emails[i]} (${r.reason.message})` : null))
+      .filter(Boolean);
+    const sent = emails.length - failed.length;
+
+    if (sent) onChanged();
+    if (failed.length) {
+      setEmailsText(failed.map((f) => f.split(' ')[0]).join(', '));
+      setToastMessage(`${sent ? `Sent ${sent}. ` : ''}Couldn't invite: ${failed.join('; ')}`);
+      return undefined;
     }
+    showToast(`Sent ${sent} invite${sent === 1 ? '' : 's'} 📬`);
+    return onContinue();
   };
 
   return (
@@ -121,7 +123,9 @@ export const InviteMemberView = ({
               </div>
               <div className="squad-card-titles">
                 <h2 className="squad-card-title">Share Invite Link</h2>
-                <p className="squad-card-subtitle">Anyone with this link can join the group directly.</p>
+                <p className="squad-card-subtitle">
+                  Anyone with this link can join {group ? `"${group.name}"` : 'the group'} directly.
+                </p>
               </div>
             </div>
 
@@ -152,6 +156,12 @@ export const InviteMemberView = ({
                 )}
               </button>
             </div>
+            {group?.myRole === 'admin' && (
+              <button type="button" className="btn-squad-copy" onClick={handleResetLink} style={{ marginTop: 10 }}>
+                <RefreshCw size={16} />
+                <span>Reset link</span>
+              </button>
+            )}
           </div>
 
           {/* Card 2: Invite via Email */}
@@ -176,7 +186,8 @@ export const InviteMemberView = ({
                 id="squad-email-textarea"
               />
               <span className="squad-email-helper-text">
-                Separate multiple emails with commas.
+                Separate multiple emails with commas. People who already have an account get a notification;
+                everyone else sees the invite when they sign up with that email.
               </span>
             </div>
           </div>
@@ -187,9 +198,10 @@ export const InviteMemberView = ({
               type="button" 
               className="btn-squad-continue"
               onClick={handleContinueAction}
+              disabled={isSending}
               id="btn-squad-continue-action"
             >
-              <span>Continue</span>
+              <span>{isSending ? 'Sending…' : emailsText.trim() ? 'Send & Continue' : 'Continue'}</span>
               <ArrowRight size={17} strokeWidth={2.4} />
             </button>
           </div>
