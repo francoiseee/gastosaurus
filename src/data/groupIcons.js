@@ -1,4 +1,5 @@
 // Auto-generated icon registry for Gastosaurus Active Groups
+import icon_dino from "../assets/icons/dino.png";
 import icon_set1_1_1 from "../assets/icons/set1_1_1.png";
 import icon_set1_1_2 from "../assets/icons/set1_1_2.png";
 import icon_set1_1_3 from "../assets/icons/set1_1_3.png";
@@ -54,7 +55,13 @@ import icon_set3_6_1 from "../assets/icons/set3_6_1.png";
 import icon_set3_6_2 from "../assets/icons/set3_6_2.png";
 import icon_set3_6_3 from "../assets/icons/set3_6_3.png";
 
+// The GastoSaurus mascot — default icon for groups with a custom ("Other") category.
+export const DINO_ICON_ID = "dino";
+// Fallback when an icon id is missing or unknown (the Flight icon).
+export const DEFAULT_ICON_ID = "set1_2_3";
+
 export const GROUP_ICONS = [
+  { id: DINO_ICON_ID, name: "GastoSaurus", set: "mascot", setLabel: "GastoSaurus", src: icon_dino },
   { id: "set1_1_1", name: "Luggage", set: "set1", setLabel: "Travel & Fun", src: icon_set1_1_1 },
   { id: "set1_1_2", name: "Sunny Day", set: "set1", setLabel: "Travel & Fun", src: icon_set1_1_2 },
   { id: "set1_1_3", name: "Briefcase", set: "set1", setLabel: "Travel & Fun", src: icon_set1_1_3 },
@@ -111,14 +118,20 @@ export const GROUP_ICONS = [
   { id: "set3_6_3", name: "Maintenance & Tools", set: "set3", setLabel: "Lifestyle & Food", src: icon_set3_6_3 },
 ];
 
+// Icons shown in the picker grid. The dino is not pickable; it only appears
+// automatically when a group's category is "Other".
+export const PICKER_ICONS = GROUP_ICONS.filter(i => i.id !== DINO_ICON_ID);
+
 export const ICON_SETS = [
   { id: "set1", label: "Travel & Fun" },
   { id: "set2", label: "Daily & Bills" },
   { id: "set3", label: "Lifestyle & Food" },
 ];
 
+const fallbackIcon = () => GROUP_ICONS.find(i => i.id === DEFAULT_ICON_ID);
+
 export const getGroupIconSrc = (iconKey) => {
-  if (!iconKey) return GROUP_ICONS[0].src;
+  if (!iconKey) return fallbackIcon().src;
   const found = GROUP_ICONS.find(i => i.id === iconKey || i.name.toLowerCase() === iconKey.toLowerCase());
-  return found ? found.src : GROUP_ICONS[0].src;
+  return found ? found.src : fallbackIcon().src;
 };

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import GroupIcon from './GroupIcon';
-import { GROUP_ICONS, ICON_SETS } from '../data/groupIcons';
+import { GROUP_ICONS, PICKER_ICONS, ICON_SETS, DINO_ICON_ID, DEFAULT_ICON_ID } from '../data/groupIcons';
 import { Plus, Check, Search, ChevronDown } from './CustomIcons';
 import { groupsApi } from '../lib/api';
 
@@ -23,8 +23,13 @@ const CATEGORIES = [
   'Supplies & Groceries',
   'Work & Cafe',
   'Household',
-  'Events & Parties'
+  'Events & Parties',
+  'Other'
 ];
+
+// Picking "Other" reveals a text box for the user's own category name.
+const OTHER_CATEGORY = 'Other';
+const CUSTOM_CATEGORY_MAX = 40; // matches the server's category limit
 
 const SUGGESTIONS = [
   'Condo Roommates',
@@ -39,7 +44,9 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated, currentUserN
   const [name, setName] = useState('');
   const [note, setNote] = useState('');
   const [category, setCategory] = useState('Travel & Trips');
-  const [selectedIconId, setSelectedIconId] = useState('set1_2_3'); // default: flight
+  const [customCategory, setCustomCategory] = useState('');
+  const [selectedIconId, setSelectedIconId] = useState(DEFAULT_ICON_ID); // default: flight
+  const [iconTouched, setIconTouched] = useState(false); // true once the user picks an icon themselves
   const [selectedTheme, setSelectedTheme] = useState(COLOR_THEMES[0]);
   const [activeSetTab, setActiveSetTab] = useState('all');
   const [iconSearch, setIconSearch] = useState('');
@@ -52,7 +59,7 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated, currentUserN
 
   // Filter icons based on Set tab and Search query
   const filteredIcons = useMemo(() => {
-    return GROUP_ICONS.filter((icon) => {
+    return PICKER_ICONS.filter((icon) => {
       const matchesSet = activeSetTab === 'all' || icon.set === activeSetTab;
       const matchesSearch =
         !iconSearch.trim() ||
@@ -63,6 +70,22 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated, currentUserN
   }, [activeSetTab, iconSearch]);
 
   if (!isOpen) return null;
+
+  const isOtherCategory = category === OTHER_CATEGORY;
+  // What actually gets saved: the typed name for "Other", or "Other" if left blank.
+  const finalCategory = isOtherCategory ? customCategory.trim() || OTHER_CATEGORY : category;
+
+  const handleCategoryChange = (value) => {
+    setCategory(value);
+    // "Other" defaults to the GastoSaurus dino — unless the user already chose an icon.
+    if (iconTouched) return;
+    setSelectedIconId(value === OTHER_CATEGORY ? DINO_ICON_ID : DEFAULT_ICON_ID);
+  };
+
+  const handlePickIcon = (iconId) => {
+    setSelectedIconId(iconId);
+    setIconTouched(true);
+  };
 
   const handleAddMember = (e) => {
     e?.preventDefault();
@@ -87,7 +110,7 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated, currentUserN
       const created = await groupsApi.create({
         name: name.trim(),
         note: note.trim() || null,
-        category,
+        category: finalCategory,
         iconId: selectedIconId,
         iconBg: selectedTheme.bg,
         iconColor: selectedTheme.color,
@@ -95,6 +118,7 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated, currentUserN
       });
       setName('');
       setNote('');
+      setCustomCategory('');
       setMembers([]);
       onGroupCreated(created);
     } catch (err) {
@@ -183,23 +207,44 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated, currentUserN
               {/* Category */}
               <div className="form-group">
                 <label className="form-label" htmlFor="create-group-category-select">Category</label>
-                <div className="custom-select-wrapper">
-                  <select
-                    id="create-group-category-select"
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="form-select custom-select-input"
-                  >
-                    {CATEGORIES.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="custom-select-arrow" aria-hidden="true">
-                    <ChevronDown size={18} strokeWidth={2.2} />
+                <div className={`category-field-row ${isOtherCategory ? 'has-custom' : ''}`}>
+                  <div className="custom-select-wrapper">
+                    <select
+                      id="create-group-category-select"
+                      value={category}
+                      onChange={(e) => handleCategoryChange(e.target.value)}
+                      className="form-select custom-select-input"
+                    >
+                      {CATEGORIES.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="custom-select-arrow" aria-hidden="true">
+                      <ChevronDown size={18} strokeWidth={2.2} />
+                    </div>
                   </div>
+
+                  {isOtherCategory && (
+                    <input
+                      id="create-group-custom-category"
+                      type="text"
+                      className="form-input custom-category-input animate-fade-in"
+                      placeholder="e.g. Wedding Fund"
+                      value={customCategory}
+                      onChange={(e) => setCustomCategory(e.target.value)}
+                      maxLength={CUSTOM_CATEGORY_MAX}
+                      aria-label="Custom category name"
+                      autoFocus
+                    />
+                  )}
                 </div>
+                {isOtherCategory && (
+                  <span className="custom-category-hint">
+                    Name your own category. Leave it blank and we&apos;ll just call it &quot;Other&quot;.
+                  </span>
+                )}
               </div>
 
               {/* Theme Color Selector */}
@@ -275,7 +320,7 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated, currentUserN
                     <div className="group-info">
                       <h4 className="group-name">{name || 'Your New Group'}</h4>
                       <span className="group-members">
-                        {members.length + 1} members • {category}
+                        {members.length + 1} members • {finalCategory}
                       </span>
                     </div>
                   </div>
@@ -295,7 +340,7 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated, currentUserN
                     Select Group Icon <span className="selected-icon-name">({selectedIconMeta.name})</span>
                   </label>
                   <p className="icon-picker-sub">
-                    54 circular icons extracted from 3 uploaded icon sets
+                    {PICKER_ICONS.length} circular icons extracted from 3 uploaded icon sets
                   </p>
                 </div>
               </div>
@@ -307,7 +352,7 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated, currentUserN
                   className={`icon-tab-btn ${activeSetTab === 'all' ? 'active' : ''}`}
                   onClick={() => setActiveSetTab('all')}
                 >
-                  All ({GROUP_ICONS.length})
+                  All ({PICKER_ICONS.length})
                 </button>
                 {ICON_SETS.map((s) => (
                   <button
@@ -352,7 +397,7 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated, currentUserN
                         key={icon.id}
                         type="button"
                         className={`icon-choice-tile ${isSelected ? 'selected' : ''}`}
-                        onClick={() => setSelectedIconId(icon.id)}
+                        onClick={() => handlePickIcon(icon.id)}
                         title={`${icon.name} (${icon.setLabel})`}
                       >
                         <div className="icon-choice-circle-wrap">

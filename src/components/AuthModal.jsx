@@ -246,6 +246,10 @@ const AuthModalContent = ({ initialMode = 'login', onClose, onAuthSuccess }) => 
               We sent a link to <strong>{email.trim().toLowerCase()}</strong>. Open it to activate your account,
               then come back and log in.
             </p>
+            <p className="auth-spam-hint">
+              Don&apos;t see it? It can take a minute or two. Check your <strong>Spam</strong> or{' '}
+              <strong>Promotions</strong> folder too.
+            </p>
             <button type="button" className="btn-auth-submit" onClick={() => switchMode('login')}>
               <span>Back to Log In</span>
               <ArrowRight size={18} />

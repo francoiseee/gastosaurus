@@ -18,7 +18,7 @@ const groupFields = {
   name,
   note: z.string().trim().max(280, 'Notes can be up to 280 characters.').nullable(),
   category: z.string().trim().min(1).max(40),
-  iconId: z.string().trim().regex(/^set\d_\d_\d$/, 'Pick one of the group icons.'),
+  iconId: z.string().trim().regex(/^(set\d_\d_\d|dino)$/, 'Pick one of the group icons.'),
   iconBg: hexColor,
   iconColor: hexColor,
 };
