@@ -1,0 +1,18 @@
+# Dependencies (run `npm install` instead of committing these)
+node_modules/
+server/node_modules/
+
+# Build output
+dist/
+
+# Secrets / local config
+.env
+.env.local
+.env.*.local
+server/.env
+server/.env.test
+
+# OS / editor junk
+.DS_Store
+**/.DS_Store
+*.log
