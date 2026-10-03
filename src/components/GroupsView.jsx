@@ -1,13 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import GroupIcon from './GroupIcon';
-import { 
-  Plus, 
-  Users, 
-  Search,
-  Check,
-  ChevronRight,
-  Sparkles
-} from './CustomIcons';
+import { balanceText } from '../lib/format';
+import { Plus, Users, Search, Check } from './CustomIcons';
 
 export const GroupsView = ({ groups, onViewGroupClick, onAddGroup }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -57,9 +51,8 @@ export const GroupsView = ({ groups, onViewGroupClick, onAddGroup }) => {
       {/* Active Groups Grid (Matching Screenshot 2 & 3) */}
       <div className="active-groups-gallery-grid">
         {filteredGroups.map((group) => {
-          const isSettled = group.balance === 0 || group.statusType === 'settled';
-          const isOwe = group.balance < 0 || group.statusType === 'owe';
-          const isOwed = group.balance > 0 || group.statusType === 'owed';
+          const isSettled = group.statusType === 'settled';
+          const isOwe = group.statusType === 'owe';
 
           return (
             <div 
@@ -74,18 +67,15 @@ export const GroupsView = ({ groups, onViewGroupClick, onAddGroup }) => {
                   className="active-group-icon-circle"
                   style={{ backgroundColor: group.iconBg || '#FFEBEF' }}
                 >
-                  <GroupIcon 
-                    iconId={group.iconId} 
-                    iconType={group.iconType} 
-                    size={42} 
-                    alt={group.name} 
-                  />
+                  <GroupIcon iconId={group.iconId} size={42} alt={group.name} />
                 </div>
                 <div className="active-group-title-box">
                   <h3 className="active-group-card-name">{group.name}</h3>
                   <div className="active-group-members-count">
                     <Users size={14} className="users-count-icon" />
-                    <span>{group.membersCount || group.members?.length || 2} Members</span>
+                    <span>
+                      {group.membersCount} {group.membersCount === 1 ? 'Member' : 'Members'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -106,10 +96,7 @@ export const GroupsView = ({ groups, onViewGroupClick, onAddGroup }) => {
                   <>
                     <span className="group-balance-label">Your balance</span>
                     <span className={`group-balance-value ${isOwe ? 'owe' : 'owed'}`}>
-                      {group.statusText || (isOwe 
-                        ? `You owe ₱${Math.abs(group.balance).toLocaleString('en-US', { minimumFractionDigits: 0 })}` 
-                        : `You are owed ₱${group.balance.toLocaleString('en-US', { minimumFractionDigits: 0 })}`
-                      )}
+                      {balanceText(group.balance, group.statusType)}
                     </span>
                   </>
                 )}

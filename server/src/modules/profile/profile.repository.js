@@ -55,3 +55,12 @@ export async function update(id, fields) {
   );
   return rows[0] ?? null;
 }
+
+/**
+ * The caller's profile, creating it if it's missing. req.user comes from the
+ * verified token: { id, email, name }.
+ */
+export async function getOrCreate(user) {
+  const fallbackName = (user.name || user.email?.split('@')[0] || 'Budget Dino').slice(0, 60);
+  return (await findById(user.id)) ?? (await ensureExists(user.id, fallbackName));
+}

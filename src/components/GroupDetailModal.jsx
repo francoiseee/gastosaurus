@@ -1,83 +1,162 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import GroupIcon from './GroupIcon';
+import Avatar from './Avatar';
 import { GROUP_ICONS, ICON_SETS } from '../data/groupIcons';
-import { Users, Plus, Check, Sparkles } from './CustomIcons';
+import { Plus, Trash2 } from './CustomIcons';
+import { groupsApi } from '../lib/api';
+import { useAsync } from '../hooks/useAsync';
+import { peso, signedPeso } from '../lib/format';
 
-export const GroupDetailModal = ({ 
-  group, 
-  isOpen, 
-  onClose, 
-  onUpdateGroupIcon,
-  onAddExpenseToGroup 
-}) => {
+/** Group settings + everyone's balance. Admins can rename, change icon/note, or delete. */
+export const GroupDetailModal = ({ groupId, refreshKey, isOpen, onClose, onChanged, onDeleted, showToast, onAddExpenseToGroup }) => {
   const [isChangingIcon, setIsChangingIcon] = useState(false);
   const [activeSet, setActiveSet] = useState('all');
+  const [editing, setEditing] = useState(null); // { name, note } while editing
+  const [busy, setBusy] = useState(false);
 
-  if (!isOpen || !group) return null;
+  const { data } = useAsync(() => Promise.all([groupsApi.get(groupId), groupsApi.balances(groupId)]), [groupId, refreshKey], {
+    enabled: isOpen && !!groupId,
+  });
 
-  const currentIconId = group.iconId || 'set2_2_1';
+  if (!isOpen || !data) return null;
 
-  const filteredIcons = GROUP_ICONS.filter(i => activeSet === 'all' || i.set === activeSet);
+  const [{ group }, balances] = data;
+  const isAdmin = group.myRole === 'admin';
+  const filteredIcons = GROUP_ICONS.filter((i) => activeSet === 'all' || i.set === activeSet);
 
-  const handleSelectIcon = (iconId) => {
-    if (onUpdateGroupIcon) {
-      onUpdateGroupIcon(group.id, iconId);
+  const save = async (fields, message) => {
+    setBusy(true);
+    try {
+      await groupsApi.update(group.id, fields);
+      showToast(message);
+      onChanged();
+      return true;
+    } catch (err) {
+      showToast(Object.values(err.fields || {})[0] || err.message, 'error');
+      return false;
+    } finally {
+      setBusy(false);
     }
-    setIsChangingIcon(false);
+  };
+
+  const handleSelectIcon = async (iconId) => {
+    if (await save({ iconId }, 'Group icon updated.')) setIsChangingIcon(false);
+  };
+
+  const handleSaveDetails = async (e) => {
+    e.preventDefault();
+    if (await save({ name: editing.name.trim(), note: editing.note.trim() || null }, 'Group details saved.')) setEditing(null);
+  };
+
+  const handleDelete = async () => {
+    if (!window.confirm(`Delete "${group.name}" and all its expenses? This can't be undone.`)) return;
+    setBusy(true);
+    try {
+      await groupsApi.remove(group.id);
+      showToast(`Deleted "${group.name}".`);
+      onDeleted();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRemind = async () => {
+    try {
+      const { sent } = await groupsApi.sendReminders(group.id);
+      showToast(sent.length ? `Reminded ${sent.map((s) => s.name).join(', ')} 📬` : 'Nobody to remind right now.');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
   };
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-card group-detail-modal animate-fade-in" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
         <div className="modal-header">
           <div className="modal-title-box">
-            <div 
-              className="modal-icon-badge group-detail-icon-wrap" 
-              style={{ backgroundColor: group.iconBg || '#FFEBEF' }}
-              title="Click to change icon"
-              onClick={() => setIsChangingIcon(!isChangingIcon)}
+            <div
+              className="modal-icon-badge group-detail-icon-wrap"
+              style={{ backgroundColor: group.iconBg }}
+              title={isAdmin ? 'Click to change icon' : group.name}
+              onClick={() => isAdmin && setIsChangingIcon(!isChangingIcon)}
             >
-              <GroupIcon 
-                iconId={group.iconId} 
-                iconType={group.iconType} 
-                size={36} 
-                alt={group.name} 
-              />
+              <GroupIcon iconId={group.iconId} size={36} alt={group.name} />
             </div>
             <div>
               <div className="group-title-row">
                 <h3>{group.name}</h3>
-                <button 
-                  type="button" 
-                  className="change-icon-tag-btn"
-                  onClick={() => setIsChangingIcon(!isChangingIcon)}
-                >
-                  {isChangingIcon ? 'Close Icons' : 'Change Icon'}
-                </button>
+                {isAdmin && (
+                  <button type="button" className="change-icon-tag-btn" onClick={() => setIsChangingIcon(!isChangingIcon)}>
+                    {isChangingIcon ? 'Close Icons' : 'Change Icon'}
+                  </button>
+                )}
+                {isAdmin && !editing && (
+                  <button
+                    type="button"
+                    className="change-icon-tag-btn"
+                    onClick={() => setEditing({ name: group.name, note: group.note ?? '' })}
+                  >
+                    Edit
+                  </button>
+                )}
               </div>
               <span className="modal-sub">
-                {group.membersCount} members • {group.category || 'Shared Expenses'}
+                {group.membersCount} members • {group.category}
               </span>
             </div>
           </div>
-          <button className="modal-close-btn" onClick={onClose} aria-label="Close">✕</button>
+          <button className="modal-close-btn" onClick={onClose} aria-label="Close">
+            ✕
+          </button>
         </div>
 
-        {/* Change Icon Drawer */}
+        {editing && (
+          <form className="modal-form" onSubmit={handleSaveDetails}>
+            <div className="form-group">
+              <label className="form-label" htmlFor="edit-group-name">Group Name</label>
+              <input
+                id="edit-group-name"
+                className="form-input"
+                value={editing.name}
+                maxLength={60}
+                required
+                onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+              />
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="edit-group-note">Note</label>
+              <textarea
+                id="edit-group-note"
+                className="form-input group-note-textarea"
+                rows={2}
+                maxLength={280}
+                value={editing.note}
+                onChange={(e) => setEditing({ ...editing, note: e.target.value })}
+              />
+            </div>
+            <div className="modal-actions">
+              <button type="button" className="btn-secondary" onClick={() => setEditing(null)}>
+                Cancel
+              </button>
+              <button type="submit" className="btn-primary-action" disabled={busy}>
+                Save
+              </button>
+            </div>
+          </form>
+        )}
+
         {isChangingIcon && (
           <div className="quick-change-icon-drawer animate-fade-in">
             <div className="drawer-header">
               <span className="drawer-title">Choose from 3 Icon Sets:</span>
               <div className="drawer-tabs">
-                <button 
-                  className={`drawer-tab-btn ${activeSet === 'all' ? 'active' : ''}`}
-                  onClick={() => setActiveSet('all')}
-                >
-                  All (54)
+                <button className={`drawer-tab-btn ${activeSet === 'all' ? 'active' : ''}`} onClick={() => setActiveSet('all')}>
+                  All ({GROUP_ICONS.length})
                 </button>
-                {ICON_SETS.map(s => (
-                  <button 
+                {ICON_SETS.map((s) => (
+                  <button
                     key={s.id}
                     className={`drawer-tab-btn ${activeSet === s.id ? 'active' : ''}`}
                     onClick={() => setActiveSet(s.id)}
@@ -89,11 +168,12 @@ export const GroupDetailModal = ({
             </div>
 
             <div className="drawer-icons-grid">
-              {filteredIcons.map(icon => (
+              {filteredIcons.map((icon) => (
                 <button
                   key={icon.id}
-                  className={`drawer-icon-btn ${currentIconId === icon.id ? 'active' : ''}`}
+                  className={`drawer-icon-btn ${group.iconId === icon.id ? 'active' : ''}`}
                   onClick={() => handleSelectIcon(icon.id)}
+                  disabled={busy}
                   title={icon.name}
                 >
                   <img src={icon.src} alt={icon.name} className="drawer-icon-img" />
@@ -103,15 +183,14 @@ export const GroupDetailModal = ({
           </div>
         )}
 
-        {/* Balance Status Banner */}
         <div className="group-detail-balance-banner">
           <div>
             <span className="stat-label">YOUR STATUS IN THIS GROUP</span>
-            <h3 className={`balance-value ${group.balance < 0 ? 'negative' : 'positive'}`}>
-              {group.balance < 0 
-                ? `You owe ₱${Math.abs(group.balance).toFixed(2)}` 
-                : group.balance > 0 
-                  ? `You get back ₱${group.balance.toFixed(2)}`
+            <h3 className={`balance-value ${group.statusType === 'owe' ? 'negative' : 'positive'}`}>
+              {group.statusType === 'owe'
+                ? `You owe ${peso(group.balance)}`
+                : group.statusType === 'owed'
+                  ? `You get back ${peso(group.balance)}`
                   : 'All settled up! (₱0.00)'}
             </h3>
           </div>
@@ -123,43 +202,48 @@ export const GroupDetailModal = ({
           )}
         </div>
 
-        {/* Members Breakdown */}
         <div className="group-members-section">
           <div className="section-mini-header">
-            <h4 className="section-mini-title">Members Breakdown ({group.members?.length || group.membersCount})</h4>
+            <h4 className="section-mini-title">Members Breakdown ({balances.members.length})</h4>
           </div>
           <div className="members-list">
-            {group.members && group.members.map((m, idx) => (
-              <div key={idx} className="member-row">
+            {balances.members.map((m) => (
+              <div key={m.id} className="member-row">
                 <div className="member-info">
-                  <span className="member-avatar">{m.avatar || '🦖'}</span>
-                  <span className="member-name">{m.name}</span>
+                  <Avatar person={m} className="member-avatar" size={28} />
+                  <span className="member-name">
+                    {m.name}
+                    {m.isCurrentUser ? ' (You)' : ''}
+                  </span>
                 </div>
-                <span className={`member-balance ${m.owes < 0 ? 'negative' : m.owes > 0 ? 'positive' : 'neutral'}`}>
-                  {m.owes < 0 
-                    ? `-₱${Math.abs(m.owes).toFixed(2)}` 
-                    : m.owes > 0 
-                      ? `+₱${m.owes.toFixed(2)}`
-                      : '₱0.00 (Settled)'}
+                <span className={`member-balance ${m.net < 0 ? 'negative' : m.net > 0 ? 'positive' : 'neutral'}`}>
+                  {m.net === 0 ? '₱0.00 (Settled)' : signedPeso(m.net)}
                 </span>
               </div>
             ))}
           </div>
+          {balances.suggestedSettlements.length > 0 && (
+            <p className="modal-sub" style={{ marginTop: 10 }}>
+              To settle:{' '}
+              {balances.suggestedSettlements.map((p) => `${p.from.name} → ${p.to.name} ${peso(p.amount)}`).join(' · ')}
+            </p>
+          )}
         </div>
 
-        {/* Modal Actions */}
         <div className="modal-actions group-detail-actions">
-          {onAddExpenseToGroup && (
-            <button 
-              className="btn-secondary" 
-              onClick={() => {
-                onClose();
-                onAddExpenseToGroup(group);
-              }}
-            >
-              <Plus size={16} /> Add Ambagan
+          {isAdmin && (
+            <button className="btn-secondary" onClick={handleDelete} disabled={busy || !balances.isSettled} title={balances.isSettled ? 'Delete group' : 'Settle all balances first'}>
+              <Trash2 size={16} /> Delete
             </button>
           )}
+          {!balances.isSettled && (
+            <button className="btn-secondary" onClick={handleRemind}>
+              Remind
+            </button>
+          )}
+          <button className="btn-secondary" onClick={onAddExpenseToGroup}>
+            <Plus size={16} /> Add Ambagan
+          </button>
           <button className="btn-primary-action" onClick={onClose}>
             Done
           </button>

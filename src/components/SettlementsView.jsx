@@ -1,182 +1,191 @@
-import React, { useState } from 'react';
-import { 
-  ArrowUpRight, 
-  ArrowDownLeft, 
-  ArrowRight,
-  CheckCircle2, 
-  CreditCard
-} from 'lucide-react';
+import { useState } from 'react';
+import { ArrowUpRight, ArrowDownLeft, ArrowRight } from 'lucide-react';
+import Avatar from './Avatar';
+import { meApi, groupsApi, settlementsApi } from '../lib/api';
+import { useAsync } from '../hooks/useAsync';
+import { peso, METHOD_LABELS } from '../lib/format';
 
-export const SettlementsView = ({ 
-  settlements = [], 
-  onSettleItem, 
-  onViewGroupMembers,
-  onSettleAllDebts,
-  onNavigatePayment,
-  onSendReminders
-}) => {
-  const [filter, setFilter] = useState('all'); // 'all' | 'owed' | 'owe' | 'paid'
-  const [toastMessage, setToastMessage] = useState(null);
+/**
+ * Turn the API's settle-up data into table rows.
+ *   owe      → a suggested payment you should make            [Pay]
+ *   owed     → a suggested payment someone should make to you [Mark received]
+ *   confirm  → someone says they paid you; confirm it          [Confirm]
+ *   pending  → you paid; waiting for them to confirm           [Undo]
+ *   paid     → completed payments                              (no action)
+ */
+function toRows(data) {
+  if (!data) return [];
+  return [
+    ...data.toPay.map((p) => ({
+      id: `owe-${p.group.id}-${p.to.memberId}`,
+      kind: 'owe',
+      person: p.to,
+      description: p.group.name,
+      group: p.group,
+      amount: p.amount,
+      unpaid: p.amount,
+      paid: 0,
+    })),
+    ...data.awaitingMyConfirmation.map((s) => ({
+      id: s.id,
+      kind: 'confirm',
+      person: s.from,
+      description: `${s.group.name} · says paid via ${METHOD_LABELS[s.method]}`,
+      settlement: s,
+      amount: s.amount,
+      unpaid: s.amount,
+      paid: 0,
+    })),
+    ...data.toReceive.map((p) => ({
+      id: `owed-${p.group.id}-${p.from.memberId}`,
+      kind: 'owed',
+      person: p.from,
+      description: p.group.name,
+      group: p.group,
+      amount: p.amount,
+      unpaid: p.amount,
+      paid: 0,
+    })),
+    ...data.awaitingTheirConfirmation.map((s) => ({
+      id: s.id,
+      kind: 'pending',
+      person: s.to,
+      description: `${s.group.name} · ${METHOD_LABELS[s.method]}, waiting for ${s.to.name} to confirm`,
+      settlement: s,
+      amount: s.amount,
+      unpaid: 0,
+      paid: s.amount,
+    })),
+    ...data.recent.map((s) => {
+      const outgoing = s.from.isCurrentUser;
+      return {
+        id: s.id,
+        kind: 'paid',
+        person: outgoing ? s.to : s.from,
+        description: `${s.group.name} · ${outgoing ? 'you paid' : 'paid you'} via ${METHOD_LABELS[s.method]}`,
+        amount: s.amount,
+        unpaid: 0,
+        paid: s.amount,
+      };
+    }),
+  ];
+}
 
-  // Initial settlements data matching Screenshot 3 & 4
-  const [items, setItems] = useState([
-    {
-      id: 'settle-1',
-      person: 'Sarah M.',
-      avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80',
-      avatarEmoji: '🦊',
-      avatarBg: '#FEF3C7',
-      description: 'Team Lunch',
-      status: 'owe', // 'owe' => 'YOU OWE'
-      statusLabel: 'YOU OWE',
-      amount: 45.00,
-      unpaid: 10.00,
-      totalPayment: 35.00,
-      isPaid: false
-    },
-    {
-      id: 'settle-2',
-      person: 'David K.',
-      avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=120&auto=format&fit=crop&q=80',
-      avatarEmoji: '🐻',
-      avatarBg: '#EDE9FE',
-      description: 'Weekend Rental',
-      status: 'owed', // 'owed' => 'OWED TO YOU'
-      statusLabel: 'OWED TO YOU',
-      amount: 120.00,
-      unpaid: 0.00,
-      totalPayment: 120.00,
-      isPaid: false
-    },
-    {
-      id: 'settle-3',
-      person: 'Alex T.',
-      avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80',
-      avatarEmoji: '🐨',
-      avatarBg: '#E0E7FF',
-      description: 'Coffee Run',
-      status: 'paid', // 'paid' => 'PAID'
-      statusLabel: 'PAID',
-      amount: 12.50,
-      unpaid: 0.00,
-      totalPayment: 12.50,
-      isPaid: true
+const FILTERS = {
+  all: () => true,
+  owed: (r) => r.kind === 'owed' || r.kind === 'confirm',
+  owe: (r) => r.kind === 'owe',
+  paid: (r) => r.kind === 'paid' || r.kind === 'pending',
+};
+
+const BADGES = {
+  owe: ['badge-owe', 'YOU OWE'],
+  owed: ['badge-owed', 'OWED TO YOU'],
+  confirm: ['badge-owed', 'CONFIRM'],
+  pending: ['badge-paid', 'PENDING'],
+  paid: ['badge-paid', 'PAID'],
+};
+
+const ACTION_LABELS = { owe: 'Pay', owed: 'Mark received', confirm: 'Confirm', pending: 'Undo', paid: 'Paid' };
+
+export const SettlementsView = ({ refreshKey, onNavigatePayment, onViewGroupMembers, onChanged, showToast }) => {
+  const [filter, setFilter] = useState('all');
+  const [busyId, setBusyId] = useState(null);
+  const { data, error, loading } = useAsync(() => meApi.settleUp(), [refreshKey]);
+
+  const rows = toRows(data);
+  const filteredRows = rows.filter(FILTERS[filter]);
+  const payRows = rows.filter((r) => r.kind === 'owe');
+
+  const act = async (row) => {
+    if (row.kind === 'owe') return onNavigatePayment([row]);
+    if (row.kind === 'paid') return undefined;
+
+    if (row.kind === 'owed' && !window.confirm(`Record that ${row.person.name} paid you ${peso(row.amount)} in ${row.group.name}?`)) {
+      return undefined;
     }
-  ]);
-
-  // Handle paying a specific item: navigate to payment or settle directly
-  const handlePay = (item) => {
-    if (item.isPaid) return;
-
-    if (onNavigatePayment) {
-      onNavigatePayment([
-        {
-          id: item.id,
-          person: item.person,
-          avatarUrl: item.avatarUrl,
-          description: item.description,
-          category: item.status === 'owe' ? 'FOOD' : 'SHARED',
-          categoryType: item.status === 'owe' ? 'food' : 'travel',
-          date: 'Oct 12, 2023',
-          amount: item.amount
-        }
-      ]);
-      return;
+    if (row.kind === 'pending' && !window.confirm(`Withdraw your ${peso(row.amount)} payment to ${row.person.name}?`)) {
+      return undefined;
     }
 
-    setItems(prev => prev.map(i => {
-      if (i.id === item.id) {
-        return {
-          ...i,
-          isPaid: true,
-          status: 'paid',
-          statusLabel: 'PAID',
-          unpaid: 0.00
-        };
+    setBusyId(row.id);
+    try {
+      if (row.kind === 'owed') {
+        await settlementsApi.record(row.group.id, {
+          fromMemberId: row.person.memberId,
+          toMemberId: row.group.myMemberId,
+          amount: row.amount,
+          method: 'cash',
+        });
+        showToast(`Recorded ${peso(row.amount)} from ${row.person.name} ✅`);
+      } else if (row.kind === 'confirm') {
+        await settlementsApi.confirm(row.settlement.id);
+        showToast(`Confirmed ${peso(row.amount)} from ${row.person.name} ✅`);
+      } else if (row.kind === 'pending') {
+        await settlementsApi.remove(row.settlement.id);
+        showToast('Payment withdrawn.');
       }
-      return i;
-    }));
-
-    if (onSettleItem) {
-      onSettleItem(item.id);
+      onChanged();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setBusyId(null);
     }
-
-    setToastMessage(`Payment of ₱${item.totalPayment.toFixed(2)} to ${item.person} completed! 🎉`);
-    setTimeout(() => setToastMessage(null), 3500);
+    return undefined;
   };
 
-  // Handle Settle All Debts -> Navigate to Payment Page
   const handleSettleAll = () => {
-    if (onNavigatePayment) {
-      onNavigatePayment();
-      return;
-    }
-
-    setItems(prev => prev.map(i => {
-      if (i.status === 'owe' && !i.isPaid) {
-        return {
-          ...i,
-          isPaid: true,
-          status: 'paid',
-          statusLabel: 'PAID',
-          unpaid: 0.00
-        };
-      }
-      return i;
-    }));
-
-    if (onSettleAllDebts) {
-      onSettleAllDebts();
-    }
-
-    setToastMessage('All outstanding debts have been settled successfully! 🦖');
-    setTimeout(() => setToastMessage(null), 3500);
+    if (!payRows.length) return showToast("You don't owe anyone right now. 🎉");
+    return onNavigatePayment(payRows);
   };
 
-  // Handle Send Reminders
-  const handleSendReminderAction = () => {
-    if (onSendReminders) {
-      onSendReminders();
+  const handleSendReminders = async () => {
+    const groupIds = [...new Set((data?.toReceive ?? []).map((p) => p.group.id))];
+    if (!groupIds.length) return showToast('Nobody owes you right now. 🎉');
+    try {
+      const results = await Promise.all(groupIds.map((id) => groupsApi.sendReminders(id)));
+      const sent = results.reduce((n, r) => n + r.sent.length, 0);
+      const skipped = results.flatMap((r) => r.skipped);
+      if (sent) showToast(`Sent ${sent} reminder${sent === 1 ? '' : 's'} 📬`);
+      else if (skipped.some((x) => x.reason === 'recently_reminded')) showToast('Already reminded in the last 12 hours.');
+      else showToast('Only guests owe you — they have no account to notify.');
+    } catch (err) {
+      showToast(err.message, 'error');
     }
-    setToastMessage('Reminders dispatched to all members with open balances! 📬');
-    setTimeout(() => setToastMessage(null), 3500);
+    return undefined;
   };
 
-  // Filter items
-  const filteredItems = items.filter(item => {
-    if (filter === 'all') return true;
-    if (filter === 'owed') return item.status === 'owed' && !item.isPaid;
-    if (filter === 'owe') return item.status === 'owe' && !item.isPaid;
-    if (filter === 'paid') return item.isPaid || item.status === 'paid';
-    return true;
-  });
+  const renderBadge = (row) => {
+    const [cls, label] = BADGES[row.kind];
+    return <span className={`status-badge-pill ${cls}`}>{label}</span>;
+  };
+
+  const renderAction = (row, idPrefix) => (
+    <button
+      className={`btn-table-pay ${row.kind === 'paid' ? 'btn-paid-disabled' : ''}`}
+      onClick={() => act(row)}
+      disabled={row.kind === 'paid' || busyId === row.id}
+      id={`${idPrefix}-${row.id}`}
+    >
+      {busyId === row.id ? '…' : ACTION_LABELS[row.kind]}
+    </button>
+  );
+
+  const emptyText = loading && !data ? 'Loading…' : error ? error.message : 'Nothing here yet — you are all settled. 🦖';
 
   return (
     <div className="settlements-page-container animate-fade-in">
-      {/* Toast Notification */}
-      {toastMessage && (
-        <div className="settlements-toast-banner animate-fade-in">
-          <CheckCircle2 size={18} color="#059669" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
-
-      {/* Page Header */}
       <div className="settlements-header-section">
         <h1 className="settlements-page-title">Balances & Settlement</h1>
-        <p className="settlements-page-subtitle">
-          Manage your shared expenses and open tabs seamlessly.
-        </p>
+        <p className="settlements-page-subtitle">Manage your shared expenses and open tabs seamlessly.</p>
       </div>
 
-      {/* Top 2 Balance Summary Cards (Matching Screenshot 3 & 4) */}
       <div className="settlements-summary-grid">
-        {/* TOTAL YOU OWE Card */}
         <div className="settlement-stat-card card-owe">
           <div className="stat-card-inner">
             <div className="stat-card-text">
               <span className="stat-card-label">TOTAL YOU OWE</span>
-              <div className="stat-card-amount owe-amount">₱1,250</div>
+              <div className="stat-card-amount owe-amount">{peso(data?.totalToPay ?? 0)}</div>
             </div>
             <div className="stat-card-icon-wrap owe-arrow">
               <div className="arrow-circle-badge owe">
@@ -184,22 +193,16 @@ export const SettlementsView = ({
               </div>
             </div>
           </div>
-
-          <button 
-            className="btn-settle-debts-action"
-            onClick={handleSettleAll}
-            id="btn-settle-all-debts"
-          >
+          <button className="btn-settle-debts-action" onClick={handleSettleAll} id="btn-settle-all-debts">
             Settle All Debts
           </button>
         </div>
 
-        {/* TOTAL YOU ARE OWED Card */}
         <div className="settlement-stat-card card-owed">
           <div className="stat-card-inner">
             <div className="stat-card-text">
               <span className="stat-card-label">TOTAL YOU ARE OWED</span>
-              <div className="stat-card-amount owed-amount">₱800</div>
+              <div className="stat-card-amount owed-amount">{peso(data?.totalToReceive ?? 0)}</div>
             </div>
             <div className="stat-card-icon-wrap owed-arrow">
               <div className="arrow-circle-badge owed">
@@ -207,64 +210,40 @@ export const SettlementsView = ({
               </div>
             </div>
           </div>
-
-          <button 
-            className="btn-send-reminders-action"
-            onClick={handleSendReminderAction}
-            id="btn-send-reminders"
-          >
+          <button className="btn-send-reminders-action" onClick={handleSendReminders} id="btn-send-reminders">
             Send Reminders
           </button>
         </div>
       </div>
 
-      {/* Controls & Filter Bar */}
       <div className="settlements-filter-bar">
         <div className="filter-pills-group">
-          <button 
-            className={`filter-pill-btn ${filter === 'all' ? 'active' : ''}`}
-            onClick={() => setFilter('all')}
-            id="filter-pill-all"
-          >
-            All
-          </button>
-          <button 
-            className={`filter-pill-btn ${filter === 'owed' ? 'active' : ''}`}
-            onClick={() => setFilter('owed')}
-            id="filter-pill-owed"
-          >
-            Owed
-          </button>
-          <button 
-            className={`filter-pill-btn ${filter === 'owe' ? 'active' : ''}`}
-            onClick={() => setFilter('owe')}
-            id="filter-pill-owe"
-          >
-            Owe
-          </button>
-          <button 
-            className={`filter-pill-btn ${filter === 'paid' ? 'active' : ''}`}
-            onClick={() => setFilter('paid')}
-            id="filter-pill-paid"
-          >
-            Paid
-          </button>
+          {[
+            ['all', 'All'],
+            ['owed', 'Owed'],
+            ['owe', 'Owe'],
+            ['paid', 'Paid'],
+          ].map(([id, label]) => (
+            <button
+              key={id}
+              className={`filter-pill-btn ${filter === id ? 'active' : ''}`}
+              onClick={() => setFilter(id)}
+              id={`filter-pill-${id}`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
-        {/* See Group Members Link Button with Arrow */}
         <div className="group-members-link-wrap">
-          <button 
-            className="btn-see-group-members"
-            onClick={onViewGroupMembers}
-            id="btn-see-group-members"
-          >
+          <button className="btn-see-group-members" onClick={onViewGroupMembers} id="btn-see-group-members">
             <span>See Group Members</span>
             <ArrowRight size={14} strokeWidth={2.4} />
           </button>
         </div>
       </div>
 
-      {/* Settlements Table Container (Web View - Screenshot 3) */}
+      {/* Desktop table */}
       <div className="settlements-table-card desktop-table-view">
         <table className="settlements-data-table">
           <thead>
@@ -279,81 +258,31 @@ export const SettlementsView = ({
             </tr>
           </thead>
           <tbody>
-            {filteredItems.map((row) => {
-              const isPaid = row.isPaid || row.status === 'paid';
+            {filteredRows.map((row) => {
+              const done = row.kind === 'paid' || row.kind === 'pending';
               return (
-                <tr key={row.id} className={`settlement-table-row ${isPaid ? 'row-paid' : ''}`}>
-                  {/* Person Column */}
+                <tr key={row.id} className={`settlement-table-row ${done ? 'row-paid' : ''}`}>
                   <td className="td-person">
                     <div className="person-cell-wrapper">
-                      <div 
-                        className="person-emoji-avatar"
-                        style={{ backgroundColor: row.avatarBg || '#FFE8EE' }}
-                      >
-                        {row.avatarEmoji || '🐱'}
-                      </div>
-                      <span className="person-table-name">{row.person}</span>
+                      <Avatar person={row.person} className="person-emoji-avatar" />
+                      <span className="person-table-name">{row.person.name}</span>
                     </div>
                   </td>
-
-                  {/* Description Column */}
-                  <td className={`td-desc ${isPaid ? 'text-dimmed' : ''}`}>
-                    {row.description}
+                  <td className={`td-desc ${done ? 'text-dimmed' : ''}`}>{row.description}</td>
+                  <td className="td-status">{renderBadge(row)}</td>
+                  <td className={`td-amount ${done ? 'text-dimmed' : ''}`}>{peso(row.amount)}</td>
+                  <td className={`td-unpaid ${done ? 'text-dimmed' : row.unpaid > 0 ? 'text-unpaid-red' : ''}`}>
+                    {peso(row.unpaid)}
                   </td>
-
-                  {/* Status Badge Column */}
-                  <td className="td-status">
-                    {row.status === 'owe' && !isPaid && (
-                      <span className="status-badge-pill badge-owe">
-                        YOU OWE
-                      </span>
-                    )}
-                    {row.status === 'owed' && !isPaid && (
-                      <span className="status-badge-pill badge-owed">
-                        OWED TO YOU
-                      </span>
-                    )}
-                    {isPaid && (
-                      <span className="status-badge-pill badge-paid">
-                        PAID
-                      </span>
-                    )}
-                  </td>
-
-                  {/* Amount Column */}
-                  <td className={`td-amount ${isPaid ? 'text-dimmed' : ''}`}>
-                    ₱{row.amount.toFixed(2)}
-                  </td>
-
-                  {/* Unpaid Column */}
-                  <td className={`td-unpaid ${isPaid ? 'text-dimmed' : row.unpaid > 0 ? 'text-unpaid-red' : ''}`}>
-                    ₱{row.unpaid.toFixed(2)}
-                  </td>
-
-                  {/* Total Payment Column */}
-                  <td className={`td-total ${isPaid ? 'text-dimmed' : ''}`}>
-                    ₱{row.totalPayment.toFixed(2)}
-                  </td>
-
-                  {/* Action Button Column */}
-                  <td className="td-action">
-                    <button 
-                      className={`btn-table-pay ${isPaid ? 'btn-paid-disabled' : ''}`}
-                      onClick={() => handlePay(row)}
-                      disabled={isPaid}
-                      id={`btn-pay-${row.id}`}
-                    >
-                      Pay
-                    </button>
-                  </td>
+                  <td className={`td-total ${done ? 'text-dimmed' : ''}`}>{peso(row.paid)}</td>
+                  <td className="td-action">{renderAction(row, 'btn-pay')}</td>
                 </tr>
               );
             })}
-
-            {filteredItems.length === 0 && (
+            {filteredRows.length === 0 && (
               <tr>
                 <td colSpan="7" className="table-empty-message">
-                  No settlements found in this filter category.
+                  {emptyText}
                 </td>
               </tr>
             )}
@@ -361,86 +290,48 @@ export const SettlementsView = ({
         </table>
       </div>
 
-      {/* Settlements Mobile Card View (Matching Screenshot 4 exactly) */}
+      {/* Mobile cards */}
       <div className="settlements-mobile-cards-list mobile-only">
-        {filteredItems.map((row) => {
-          const isPaid = row.isPaid || row.status === 'paid';
+        {filteredRows.map((row) => {
+          const done = row.kind === 'paid' || row.kind === 'pending';
           return (
-            <div key={row.id} className={`settlement-mobile-card ${isPaid ? 'card-paid' : ''}`}>
+            <div key={row.id} className={`settlement-mobile-card ${done ? 'card-paid' : ''}`}>
               <div className="settlement-mobile-header">
                 <div className="person-cell-wrapper">
-                  <div 
-                    className="person-emoji-avatar"
-                    style={{ backgroundColor: row.avatarBg || '#FFE8EE' }}
-                  >
-                    {row.avatarEmoji || '🐱'}
-                  </div>
+                  <Avatar person={row.person} className="person-emoji-avatar" />
                   <div>
-                    <span className="person-table-name">{row.person}</span>
-                    <span className={`mobile-desc ${isPaid ? 'text-dimmed' : ''}`}>
-                      {row.description}
-                    </span>
+                    <span className="person-table-name">{row.person.name}</span>
+                    <span className={`mobile-desc ${done ? 'text-dimmed' : ''}`}>{row.description}</span>
                   </div>
                 </div>
-
-                <div className="mobile-status-wrap">
-                  {row.status === 'owe' && !isPaid && (
-                    <span className="status-badge-pill badge-owe">YOU OWE</span>
-                  )}
-                  {row.status === 'owed' && !isPaid && (
-                    <span className="status-badge-pill badge-owed">OWED TO YOU</span>
-                  )}
-                  {isPaid && (
-                    <span className="status-badge-pill badge-paid">PAID</span>
-                  )}
-                </div>
+                <div className="mobile-status-wrap">{renderBadge(row)}</div>
               </div>
 
-              {/* 3-column stats box matching Screenshot 4 */}
               <div className="settlement-mobile-amounts-grid">
                 <div className="mobile-amount-item">
                   <span className="mobile-amount-label">AMOUNT</span>
-                  <span className={`mobile-amount-val ${isPaid ? 'text-dimmed' : ''}`}>
-                    ₱{row.amount.toFixed(2)}
-                  </span>
+                  <span className={`mobile-amount-val ${done ? 'text-dimmed' : ''}`}>{peso(row.amount)}</span>
                 </div>
                 <div className="mobile-amount-item">
                   <span className="mobile-amount-label">UNPAID</span>
-                  <span className={`mobile-amount-val ${row.unpaid > 0 ? 'text-unpaid-red' : ''} ${isPaid ? 'text-dimmed' : ''}`}>
-                    ₱{row.unpaid.toFixed(2)}
+                  <span className={`mobile-amount-val ${row.unpaid > 0 ? 'text-unpaid-red' : ''} ${done ? 'text-dimmed' : ''}`}>
+                    {peso(row.unpaid)}
                   </span>
                 </div>
                 <div className="mobile-amount-item">
                   <span className="mobile-amount-label">TOTAL PAID</span>
-                  <span className={`mobile-amount-val highlight ${isPaid ? 'text-dimmed' : ''}`}>
-                    ₱{row.totalPayment.toFixed(2)}
-                  </span>
+                  <span className={`mobile-amount-val highlight ${done ? 'text-dimmed' : ''}`}>{peso(row.paid)}</span>
                 </div>
               </div>
 
-              <div className="settlement-mobile-action">
-                <button 
-                  className={`btn-table-pay ${isPaid ? 'btn-paid-disabled' : ''}`}
-                  onClick={() => handlePay(row)}
-                  disabled={isPaid}
-                  id={`btn-mobile-pay-${row.id}`}
-                >
-                  Pay
-                </button>
-              </div>
+              <div className="settlement-mobile-action">{renderAction(row, 'btn-mobile-pay')}</div>
             </div>
           );
         })}
-
-        {filteredItems.length === 0 && (
-          <div className="mobile-empty-message">
-            No settlements found in this category.
-          </div>
-        )}
+        {filteredRows.length === 0 && <div className="mobile-empty-message">{emptyText}</div>}
       </div>
     </div>
   );
 };
 
 export default SettlementsView;
-

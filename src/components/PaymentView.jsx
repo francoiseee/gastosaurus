@@ -1,51 +1,19 @@
-import React, { useState } from 'react';
-import { 
-  ArrowLeft, 
-  Bell, 
-  Check, 
-  Landmark, 
-  QrCode, 
-  Banknote, 
-  CreditCard,
-  CheckCircle2,
-  Receipt
-} from 'lucide-react';
+import { useState } from 'react';
+import { ArrowLeft, Bell, Check, Landmark, QrCode, Banknote, CreditCard, CheckCircle2 } from 'lucide-react';
+import Avatar from './Avatar';
+import { settlementsApi } from '../lib/api';
+import { formatDate, todayISO } from '../lib/format';
 
-export const PaymentView = ({ 
-  onBack, 
-  onConfirmSettle,
-  initialOwedItems = null,
-  notifications = [],
-  unreadCount = 1
-}) => {
-  // Default items matching Screenshot 1 & 2 exactly
-  const defaultItems = [
-    {
-      id: 'owed-1',
-      person: 'Sarah M.',
-      avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80',
-      description: 'Team Lunch at Manam',
-      category: 'FOOD',
-      categoryType: 'food',
-      date: 'Oct 12, 2023',
-      amount: 850.00
-    },
-    {
-      id: 'owed-2',
-      person: 'David K.',
-      avatarUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=120&auto=format&fit=crop&q=80',
-      description: 'Weekend Villa Rental',
-      category: 'TRAVEL',
-      categoryType: 'travel',
-      date: 'Oct 08, 2023',
-      amount: 3200.00
-    }
-  ];
-
-  const [items, setItems] = useState(initialOwedItems || defaultItems);
-  const [selectedIds, setSelectedIds] = useState(items.map(i => i.id));
-  const [paymentMethod, setPaymentMethod] = useState('bank'); // 'bank' | 'gcash' | 'cash'
-  const [toastMessage, setToastMessage] = useState(null);
+/**
+ * Pay one or more suggested settlements (rows from SettlementsView with
+ * kind 'owe': { id, person, group, amount }). Each selected row is recorded
+ * as a payment. Payments to someone with an account wait for them to
+ * confirm; payments to guests count right away.
+ */
+export const PaymentView = ({ items = [], onBack, onDone, showToast, onOpenNotifications, unreadCount = 0 }) => {
+  const [selectedIds, setSelectedIds] = useState(items.map((i) => i.id));
+  const [paymentMethod, setPaymentMethod] = useState('gcash'); // 'bank' | 'gcash' | 'cash'
+  const [toastMessage, setToastMessage] = useState(items.length ? null : 'Nothing to pay right now. 🎉');
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Toggle selection of an owed item
@@ -71,37 +39,40 @@ export const PaymentView = ({
     .filter(i => selectedIds.includes(i.id))
     .reduce((sum, i) => sum + Number(i.amount || 0), 0);
 
-  const formattedWholeAmount = Math.floor(totalSelectedAmount).toLocaleString('en-US');
-  const formattedDecimalAmount = (totalSelectedAmount % 1).toFixed(2).substring(1); // e.g. ".00"
+  const [whole, cents] = totalSelectedAmount.toFixed(2).split('.');
+  const formattedWholeAmount = Number(whole).toLocaleString('en-US');
+  const formattedDecimalAmount = `.${cents}`;
 
-  // Confirm settlement handler
-  const handleConfirmAction = () => {
+  const handleConfirmAction = async () => {
     if (selectedIds.length === 0) {
       setToastMessage('Please select at least one item to settle.');
-      setTimeout(() => setToastMessage(null), 3000);
       return;
     }
 
     setIsProcessing(true);
-
-    const methodNames = {
-      bank: 'Bank Transfer',
-      gcash: 'GCash',
-      cash: 'Cash'
-    };
-
-    const selectedMethodName = methodNames[paymentMethod] || 'Bank Transfer';
-
-    setTimeout(() => {
-      setIsProcessing(false);
-      if (onConfirmSettle) {
-        onConfirmSettle({
-          selectedIds,
-          totalAmount: totalSelectedAmount,
-          paymentMethod: selectedMethodName
-        });
+    const selected = items.filter((i) => selectedIds.includes(i.id));
+    try {
+      const recorded = [];
+      for (const item of selected) {
+        recorded.push(
+          await settlementsApi.record(item.group.id, {
+            toMemberId: item.person.memberId,
+            amount: item.amount,
+            method: paymentMethod,
+          }),
+        );
       }
-    }, 400);
+      const waiting = recorded.filter((s) => s.status === 'pending').length;
+      showToast(
+        waiting
+          ? `Payment recorded 🎉 ${waiting === 1 ? 'The receiver' : `${waiting} receivers`} will confirm it.`
+          : 'Payment recorded and settled 🎉',
+      );
+      onDone();
+    } catch (err) {
+      setToastMessage(err.message);
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -121,7 +92,7 @@ export const PaymentView = ({
         <h2 className="payment-header-title">Payment</h2>
 
         <div className="payment-header-actions">
-          <button className="header-notif-btn" aria-label="Notifications">
+          <button className="header-notif-btn" aria-label="Notifications" onClick={onOpenNotifications}>
             <Bell size={20} color="#1E2026" />
             {unreadCount > 0 && <span className="header-notif-dot" />}
           </button>
@@ -178,11 +149,7 @@ export const PaymentView = ({
                   <div className="owed-item-left">
                     {/* Avatar with Circular Black Checkmark Overlay Badge */}
                     <div className="owed-avatar-wrapper">
-                      <img 
-                        src={item.avatarUrl} 
-                        alt={item.person} 
-                        className="owed-avatar-img" 
-                      />
+                      <Avatar person={item.person} className="owed-avatar-img" />
                       <div className={`owed-check-badge ${isSelected ? 'checked' : 'unchecked'}`}>
                         <Check size={12} color="#FFFFFF" strokeWidth={3} />
                       </div>
@@ -190,13 +157,11 @@ export const PaymentView = ({
 
                     {/* Info */}
                     <div className="owed-item-info">
-                      <h3 className="owed-person-name">{item.person}</h3>
-                      <p className="owed-item-desc">{item.description}</p>
+                      <h3 className="owed-person-name">{item.person.name}</h3>
+                      <p className="owed-item-desc">{item.group.name}</p>
                       <div className="owed-tags-row">
-                        <span className={`owed-category-badge ${item.categoryType || 'food'}`}>
-                          {item.category}
-                        </span>
-                        <span className="owed-item-date">{item.date}</span>
+                        <span className="owed-category-badge travel">SETTLE UP</span>
+                        <span className="owed-item-date">{formatDate(todayISO())}</span>
                       </div>
                     </div>
                   </div>

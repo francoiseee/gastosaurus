@@ -2,7 +2,7 @@
 
 Gastosaurus tracks group expenses and auto-splits them "ambagan"-style, including itemized splits where people pay only for what they ordered. This document describes how the backend is built and the plan for the remaining phases.
 
-**Status:** Phase 1 (accounts: sign up, log in, Google, password reset, profile) is built. Phases 2–5 are designed below and not built yet.
+**Status:** Phases 1–5 are built and every screen runs on real data: accounts; groups with guest members, email invites and join links; expenses with equal, itemized and custom splitting; live balances; Settle Up; payments with confirmation; and notifications with reminders and live updates. Deployment (Phase 6) is next. For a plain-language walkthrough of the splitting math, see [HOW-THE-MONEY-WORKS.md](HOW-THE-MONEY-WORKS.md).
 
 ---
 
@@ -62,28 +62,50 @@ There are three parts:
 
 ```
 gastosaurus/
-├── src/                       React app
+├── src/                          React app
+│   ├── App.jsx                   navigation, auth session, toasts, add-expense draft, refresh signal
+│   ├── components/               one file per screen or modal (+ Avatar, GroupIcon, CustomIcons)
+│   ├── hooks/
+│   │   ├── useAsync.js           load data from the API, reload when inputs change
+│   │   └── useNotifications.js   inbox + pending invites, live via Supabase Realtime
 │   ├── lib/
-│   │   ├── supabase.js        Supabase client + "Keep me logged in" storage + friendly errors
-│   │   └── api.js             fetch wrapper for /api (adds the Bearer token)
-│   └── components/AuthModal.jsx   Log in / Sign up / Forgot / New password / Check email
-├── server/                    Express API
+│   │   ├── supabase.js           Supabase client + "Keep me logged in" storage + friendly errors
+│   │   ├── api.js                every API call (groupsApi, expensesApi, settlementsApi, …)
+│   │   └── format.js             ₱ formatting, dates, "5m ago", initials
+│   └── data/groupIcons.js        the 54 group icons
+├── server/                       Express API
 │   ├── src/
-│   │   ├── server.js          starts the app (checks DB first)
-│   │   ├── app.js             middleware + route mounting
-│   │   ├── config/env.js      all environment variables in one place
-│   │   ├── db/pool.js         pg Pool, query(), withTransaction()
-│   │   ├── lib/verifySupabaseToken.js
-│   │   ├── middleware/        requireAuth, validateBody, errorHandler
+│   │   ├── server.js             starts the app (checks DB first)
+│   │   ├── app.js                middleware + route mounting
+│   │   ├── config/env.js         all environment variables in one place
+│   │   ├── db/pool.js            pg Pool, query(), withTransaction()
+│   │   ├── lib/                  verifySupabaseToken.js, money.js (centavos),
+│   │   │                         splitting.js (the ambagan algorithm), validators.js
+│   │   ├── middleware/           requireAuth, validateBody, errorHandler
 │   │   ├── utils/HttpError.js
-│   │   └── modules/
-│   │       └── profile/       profile.routes.js, profile.repository.js
-│   │       (next: groups/, expenses/, settlements/, notifications/)
-│   └── test/
-├── supabase/migrations/       SQL migrations, applied in filename order
-└── docs/ARCHITECTURE.md       this file
+│   │   └── modules/              each: *.routes.js → *.validation.js → *.service.js → *.repository.js
+│   │       ├── profile/          /api/me
+│   │       ├── groups/           groups, members, membership guard, invite codes
+│   │       ├── invites/          invite by email or join link; accept / decline / cancel
+│   │       ├── expenses/         add / edit / delete expenses (runs the split)
+│   │       ├── balances/         group balances, dashboard summary, settle-up
+│   │       ├── settlements/      record / confirm / undo payments
+│   │       └── notifications/    inbox, reminders, and notify.js (every message the app sends)
+│   └── test/                     splitting (unit), groups + notifications (end-to-end API), profile
+├── supabase/migrations/          SQL migrations, applied in filename order
+└── docs/
+    ├── ARCHITECTURE.md           this file
+    ├── HOW-THE-MONEY-WORKS.md    app flow + splitting algorithm in plain language
+    └── QA-CHECKLIST.md           what to click through before a release, and files safe to delete
 ```
 
+### How the React app gets its data
+
+- **Each screen loads what it shows** with `useAsync(() => api.call(), [inputs, refreshKey])`. There is no global store; `App.jsx` only keeps which screen and group are open.
+- **After any save, call `onChanged()`** (it's `refresh()` in `App.jsx`). That bumps `refreshKey`, and every visible screen re-fetches, so balances everywhere stay in sync.
+- **Notifications are live.** `useNotifications` subscribes to Supabase Realtime for the user's own `notifications` rows. When one arrives (say, a friend added an expense), the bell updates and the app refreshes.
+- **Adding an expense is a two-step draft** kept in `App.jsx`. The calculator adds one item at a time, then the item-split screen assigns items to people. Saving sends one item as an `equal` split and several as an `itemized` split; the server does the centavo math.
+- **Join links** look like `<app>/?join=<code>`. The code is kept in sessionStorage across sign-up or log-in, then `POST /api/invites/join` adds the user.
 ### Layers inside each API module
 
 ```
@@ -152,18 +174,21 @@ Sign up, log in, log out, Google and reset are **not** API endpoints. They're `s
 
 ## 5. Data model
 
-Phase 1 tables exist. The others are the plan for Phases 2–5.
+Migrations, in order: `…010000_create_profiles` (accounts), `…020000_create_groups`, `…030000_create_expenses_and_settlements`, `…040000_create_notifications` (also adds a welcome message to the sign-up trigger) and `…050000_add_group_invite_codes`. All five are applied on the Supabase project.
 
 ```mermaid
 erDiagram
   AUTH_USERS ||--|| PROFILES : "1:1 (trigger)"
-  PROFILES ||--o{ GROUP_MEMBERS : joins
+  PROFILES |o--o{ GROUP_MEMBERS : "linked account (null = guest)"
   GROUPS ||--o{ GROUP_MEMBERS : has
   GROUPS ||--o{ GROUP_INVITES : sends
+  GROUP_MEMBERS |o--o{ GROUP_INVITES : "guest spot to claim"
   GROUPS ||--o{ EXPENSES : has
-  EXPENSES ||--o{ EXPENSE_ITEMS : "itemized lines"
+  GROUP_MEMBERS ||--o{ EXPENSES : "paid_by"
+  EXPENSES ||--o{ EXPENSE_ITEMS : "receipt lines + charges"
   EXPENSE_ITEMS ||--o{ EXPENSE_ITEM_ASSIGNEES : "who had it"
   EXPENSES ||--o{ EXPENSE_SHARES : "who owes what"
+  GROUP_MEMBERS ||--o{ EXPENSE_SHARES : owes
   GROUPS ||--o{ SETTLEMENTS : records
   PROFILES ||--o{ NOTIFICATIONS : receives
 
@@ -176,20 +201,29 @@ erDiagram
   GROUPS {
     uuid id PK
     varchar name
+    varchar note
     varchar category
     varchar icon_id "e.g. set1_2_3"
+    varchar icon_bg
+    varchar icon_color
+    varchar invite_code "join link: /?join=<code>"
     uuid created_by FK
   }
   GROUP_MEMBERS {
-    uuid group_id PK
-    uuid user_id PK
-    text role "admin | member"
+    uuid id PK "what expenses and payments point at"
+    uuid group_id FK
+    uuid user_id FK "null = guest (added by name)"
+    varchar display_name
+    text role "admin | member (guests are always member)"
     timestamptz joined_at
+    timestamptz left_at "null = active"
+    bigint seq "stable order"
   }
   GROUP_INVITES {
     uuid id PK
     uuid group_id FK
     varchar email "stored lowercase"
+    uuid member_id FK "optional guest spot to claim"
     uuid invited_by FK
     text status "pending | accepted | declined | cancelled"
   }
@@ -198,30 +232,32 @@ erDiagram
     uuid group_id FK
     varchar description
     numeric total_amount
-    uuid paid_by FK
+    uuid paid_by FK "group_members.id"
     text split_type "equal | itemized | custom"
     date spent_on
+    uuid created_by FK
   }
   EXPENSE_ITEMS {
     uuid id PK
     uuid expense_id FK
+    text kind "item | charge"
     varchar name
-    numeric price
+    numeric price "charges may be negative (discount)"
   }
   EXPENSE_ITEM_ASSIGNEES {
     uuid item_id PK
-    uuid user_id PK
+    uuid member_id PK
   }
   EXPENSE_SHARES {
     uuid expense_id PK
-    uuid user_id PK
-    numeric amount "what this person owes for this expense"
+    uuid member_id PK
+    numeric amount "what this member owes for this expense"
   }
   SETTLEMENTS {
     uuid id PK
     uuid group_id FK
-    uuid from_user FK "payer"
-    uuid to_user FK "receiver"
+    uuid from_member FK "payer"
+    uuid to_member FK "receiver"
     numeric amount
     text method "cash | gcash | maya | bank"
     text status "pending | completed"
@@ -229,68 +265,103 @@ erDiagram
   NOTIFICATIONS {
     uuid id PK
     uuid user_id FK
-    text type "auth | group | expense | payment | settlement"
-    text title
-    jsonb data
+    text type "welcome | invite | group | expense | payment | reminder"
+    varchar title
+    varchar body
+    uuid group_id FK
+    jsonb data "ids to open: inviteId, expenseId, settlementId"
     timestamptz read_at
   }
 ```
 
+### Members are rows, not just accounts
+
+The UI lets people add barkada **by name** before those friends have accounts. So a group member is its own row (`group_members.id`) with a display name and an **optional** `user_id`:
+
+- **Guest** (`user_id` null): can be split with, can pay, can be paid. Can't log in or be admin.
+- **Claiming:** an invite can point at a guest row (`group_invites.member_id`). When the invitee accepts, the guest row gets their `user_id` and keeps its whole history.
+- Expenses, shares, item assignees and settlements all reference `group_members.id`. Composite foreign keys `(group_id, member_id)` make it impossible to pay or split with someone from another group.
+- Leaving sets `left_at` and keeps the row, so old bills still show the person's name. Rejoining reactivates the same row.
+
 ### Money rules
 
-- Store money as `numeric(12,2)`, never `float`. `pg` returns `numeric` as a **string**, so convert it on purpose.
-- **`expense_shares` is the source of truth.** Whatever the split type, saving an expense also saves one share per person, and the shares must add up to `total_amount` exactly. The service checks this inside a transaction (`withTransaction`).
-- **Equal split** of ₱100 among 3 people gives 33.34 + 33.33 + 33.33. Work in centavos (integers), then give the leftover centavos to the first people in the list.
-- **Itemized split** (the screen in `ItemizedAmbaganView`): each item's price is divided among its assignees, and each person's share is the sum of their portions. Extra charges such as service charge or delivery can be added as items assigned to everyone.
+- Money is stored as `numeric(12,2)`, never `float`. `pg` returns `numeric` as a **string**. The API converts it to integer **centavos** (`lib/money.js`) for all math, and validation turns incoming peso amounts into centavos.
+- **`expense_shares` is the source of truth.** Every split type saves one share per person. A deferred constraint trigger refuses to commit if an expense's shares don't add up to its `total_amount` exactly.
+- **Rounding:** each person's exact share is computed as a fraction, then rounded with the *largest remainder* method. Shares always add up to the total, and nobody is more than ₱0.01 off their exact share. ₱100 ÷ 3 → 33.34 + 33.33 + 33.33.
+- **Itemized:** each item is divided among its assignees. Charges and discounts (`kind = 'charge'`) are spread in proportion to each person's items subtotal. Rounding happens once per person, not once per item.
+- **Custom:** typed amounts must equal the total. The error says how many pesos it's short or over.
+
+Algorithm details and worked examples: [HOW-THE-MONEY-WORKS.md](HOW-THE-MONEY-WORKS.md) · code: `server/src/lib/splitting.js` · tests: `server/test/splitting.test.js`.
 
 ### Balances (no stored balance column)
 
-A member's net balance in a group is computed live:
-
 ```
-net = Σ expenses they paid
-    − Σ their expense_shares
-    + Σ completed settlements they paid out
-    − Σ completed settlements they received
+net = Σ expenses they paid − Σ their expense_shares
+    + Σ completed settlements they sent − Σ completed settlements they received
 ```
 
-`net > 0` means "you are owed" and `net < 0` means "you owe". These map to the dashboard's `statusType` values `owed`, `owe` and `settled`. This becomes a SQL view, `group_balances (group_id, user_id, net)`.
+This is the view `group_balances (group_id, member_id, net, total_paid, total_share)`, created `with (security_invoker = true)` so it obeys RLS. `net > 0` → `owed`, `net < 0` → `owe`, `0` → `settled`.
 
-**Suggested settlements** ("Settle Up") use a greedy match. Sort debtors and creditors by amount, and repeatedly pay the largest debt toward the largest credit. That needs at most *n − 1* payments.
+**Suggested settlements** (`suggestSettlements`): the biggest debtor pays the biggest creditor, repeated until everyone is at zero. That takes at most *n − 1* payments.
+
+**Payment confirmation:** a payment to a member with an account is `pending` until the receiver confirms. A payment the receiver records, or one to a guest, is `completed` immediately. Only completed payments affect balances, but Settle Up suggestions and reminders count pending payments as already sent, so nobody is asked to pay the same debt twice.
+
+### Notifications
+
+`server/src/modules/notifications/notify.js` is the one place that decides who hears about what and how it's worded. Services call it **inside their own transaction**, so a notification exists only if the change it describes was saved. The person who acted is never notified about their own action, and guests (no account) never are.
+
+| Event | Who is notified |
+|---|---|
+| Sign-up | the new user (welcome, written by the DB trigger) |
+| Invite sent | the invitee, if they already have an account (otherwise they see it under *Invites* after signing up) |
+| Someone joins | everyone else in the group |
+| Expense added, re-split or deleted | the payer and everyone with a share (with their own share in the message) |
+| Payment recorded | the other side. If pending, the receiver gets a **Confirm** action |
+| Payment confirmed | the payer |
+| Removed from group | the removed member |
+| Reminder | members who owe, with exactly whom to pay. At most one per person per group every 12 hours |
 
 ### Security in the database
 
-- **RLS is on for every table.** The browser gets the *publishable* key, which anyone can read, so the database itself must refuse access to other people's rows. Policies follow the pattern "you can see a group's rows only if you're in `group_members` for it".
-- The Express API connects with the database password (server-side only), which bypasses RLS. **So the service layer must also check membership** before every read or write. Example: `assertMember(groupId, req.user.id)`.
-- Functions use `security definer` only when necessary (the sign-up trigger), always with `set search_path = ''`.
+- **RLS is on for every table.** Policies are **read-only**: a logged-in user can `select` rows only for groups they're an active member of. There are no insert, update or delete policies, so the public key can't write anything. All writes go through the API.
+- The membership check used by policies is `private.is_group_member(group_id)`, a `security definer` function (with `set search_path = ''`) in a schema the REST API doesn't expose. Being `security definer` avoids recursive RLS on `group_members`.
+- The Express API connects as the database owner, which bypasses RLS. **So every service checks membership first** (`assertMember` / the `requireGroupMember` middleware). An outsider gets **404**, not 403, so they can't tell whether a group exists.
 
 ---
 
-## 6. API plan (all phases)
+## 6. API
 
-All endpoints require `Authorization: Bearer <token>`. The `:groupId` routes also require that the caller is a member of that group.
+All endpoints require `Authorization: Bearer <token>`. `:groupId` routes require that the caller is an active member. Amounts are sent and returned as peso numbers (e.g. `1850.5`). The frontend wrappers are in `src/lib/api.js` (`groupsApi`, `invitesApi`, `expensesApi`, `settlementsApi`, `meApi`).
 
 | Phase | Method & path | Purpose | Screen |
 |---|---|---|---|
 | 1 ✅ | `GET/PATCH /api/me` | Profile | Dashboard header |
-| 2 | `GET /api/groups` | My groups with my balance in each | Dashboard, GroupsView |
-| 2 | `POST /api/groups` | Create a group (creator becomes admin) | CreateGroupModal |
-| 2 | `GET /api/groups/:groupId` | Group + members + pending invites | GroupMembersView |
-| 2 | `PATCH /api/groups/:groupId` | Rename, change icon (admin) | GroupDetailModal |
-| 2 | `DELETE /api/groups/:groupId/members/me` | Leave a group | LeaveGroupModal |
-| 2 | `POST /api/groups/:groupId/invites` | Invite by email | InviteMemberView |
-| 2 | `POST /api/invites/:id/accept` · `/decline` · `DELETE /api/invites/:id` | Respond to or cancel an invite | Notifications, InviteMemberView |
-| 3 | `GET /api/groups/:groupId/expenses` | Expense list | ExpensesDetailView |
-| 3 | `POST /api/groups/:groupId/expenses` | Add an equal, itemized or custom expense (computes shares) | AddExpenseCalculatorView, ItemizedAmbaganView |
-| 3 | `GET/PATCH/DELETE /api/expenses/:id` | Expense detail and edit | ExpensesDetailView |
-| 4 | `GET /api/groups/:groupId/balances` | Net balance per member + suggested settlements | SettlementsView |
-| 4 | `GET /api/me/summary` | Net balance, you owe, you are owed, monthly spending | Dashboard cards |
-| 4 | `POST /api/groups/:groupId/settlements` | Record a payment (cash, GCash, Maya…) | PaymentView, SettleUpModal |
-| 4 | `PATCH /api/settlements/:id` | Mark completed | SettlementsView |
-| 5 | `GET /api/notifications` · `PATCH /api/notifications/:id/read` · `POST /api/notifications/read-all` | Bell and NotificationsView | Navbar, NotificationsView |
-| 5 | `POST /api/groups/:groupId/reminders` | Nudge members who owe | SettlementsView |
+| 2 ✅ | `GET /api/groups` | My groups with my balance (`balance`, `statusType`), member count, total spending, latest expense | Dashboard, GroupsView |
+| 2 ✅ | `POST /api/groups` | Create. `{ name, category?, iconId?, iconBg?, iconColor?, note?, members?: [{ name, email? }] }`. Creator = admin; members become guests; emails get invites | CreateGroupModal |
+| 2 ✅ | `GET /api/groups/:groupId` | `{ group, members, pendingInvites }` | GroupMembersView, GroupDetailModal |
+| 2 ✅ | `PATCH /api/groups/:groupId` | Rename, note, category, icon, colors (admin) | GroupDetailModal |
+| 2 ✅ | `DELETE /api/groups/:groupId` | Delete (admin, only when everyone is settled) | GroupDetailModal |
+| 2 ✅ | `POST /api/groups/:groupId/members` | Add a guest `{ name, email? }` | CreateGroupModal, AddExpenseCalculatorView |
+| 2 ✅ | `PATCH /api/groups/:groupId/members/:memberId` | Rename a guest / change role (admin) | GroupMembersView |
+| 2 ✅ | `DELETE /api/groups/:groupId/members/:memberId` | Remove a member (admin, balance must be ₱0) | GroupMembersView |
+| 2 ✅ | `DELETE /api/groups/:groupId/members/me` | Leave (balance must be ₱0) | LeaveGroupModal |
+| 2 ✅ | `POST /api/groups/:groupId/invites` | Invite `{ email, memberId? }` (memberId = guest spot to claim) | InviteMemberView |
+| 2 ✅ | `GET /api/invites` | Invites waiting for me | NotificationsView |
+| 2 ✅ | `POST /api/invites/:id/accept` · `/decline` · `DELETE /api/invites/:id` | Respond to or cancel an invite | NotificationsView, InviteMemberView |
+| 3 ✅ | `GET /api/groups/:groupId/expenses?limit&offset` | Expense list with `myShare` | ExpensesDetailView |
+| 3 ✅ | `POST /api/groups/:groupId/expenses` | Add an equal / itemized / custom expense (computes shares). Bodies in `expenses.validation.js` | AddExpenseCalculatorView, ItemizedAmbaganView |
+| 3 ✅ | `GET/PATCH/DELETE /api/expenses/:id` | Detail (items, charges, shares). PATCH with `splitType` re-splits; without it, edits description/date/note only | ExpensesDetailView |
+| 4 ✅ | `GET /api/groups/:groupId/balances` | `{ me, members[net], suggestedSettlements, isSettled }` | SettlementsView, GroupMembersView |
+| 4 ✅ | `GET /api/me/summary?month=YYYY-MM` | Net balance, you owe, you are owed, group counts, monthly spending vs budget (month in Asia/Manila) | Dashboard cards, PersonalBalanceModal |
+| 4 ✅ | `GET /api/me/settle-up` | Across all groups: `toPay`, `toReceive`, payments awaiting confirmation, recent payments | SettlementsView |
+| 4 ✅ | `GET/POST /api/groups/:groupId/settlements` | List / record a payment `{ toMemberId, amount, method, fromMemberId?, note? }` | PaymentView, SettleUpModal |
+| 4 ✅ | `PATCH /api/settlements/:id` `{ status: "completed" }` · `DELETE` | Receiver confirms / withdraw or undo | SettlementsView |
+| 2 ✅ | `POST /api/invites/join` `{ code }` · `POST /api/groups/:groupId/invite-code` | Join with a share link · reset the link (admin) | InviteMemberView |
+| 5 ✅ | `GET /api/notifications?limit&before&unread=true` | `{ notifications, unreadCount }` | Navbar bell, NotificationsView |
+| 5 ✅ | `PATCH /api/notifications/:id/read` · `POST /api/notifications/read-all` · `DELETE /api/notifications/:id` | Mark read / clear | NotificationsView |
+| 5 ✅ | `POST /api/groups/:groupId/reminders` `{ memberIds? }` | Nudge members who owe → `{ sent, skipped }` | SettlementsView, GroupDetailModal |
 
-As each phase lands, replace that screen's `mockData.js` usage with calls in `src/lib/api.js`.
+Every screen now uses these through `src/lib/api.js`; `mockData.js` is no longer imported anywhere.
 
 ---
 
@@ -298,21 +369,21 @@ As each phase lands, replace that screen's `mockData.js` usage with calls in `sr
 
 | Phase | Scope | Status |
 |---|---|---|
-| **1. Accounts** | Supabase Auth, `profiles` + trigger + RLS, `/api/me`, login/sign-up/Google/forgot/new-password UI, logout, protected screens | ✅ Done (branch `backend-auth`) |
-| **2. Groups** | `groups`, `group_members`, `group_invites`; create, list, join, leave, invite | Next |
-| **3. Expenses** | `expenses`, `expense_items`, `expense_item_assignees`, `expense_shares`; equal and itemized splitting with tests for the rounding rules | |
-| **4. Balances & settlements** | `group_balances` view, dashboard summary, suggested settlements, record payments | |
-| **5. Notifications** | `notifications` table written by the services (invite sent, expense added, payment received); later, live updates with Supabase Realtime | |
-| **6. Deploy** | Vercel + Render + Supabase production settings | |
-
----
+| **1. Accounts** | Supabase Auth, `profiles` + trigger + RLS, `/api/me`, login/sign-up/Google/forgot/new-password UI | ✅ |
+| **2. Groups** | Groups, guest members, email invites (claim a guest spot), join links, leave/remove rules, admin hand-over | ✅ |
+| **3. Expenses** | Equal / itemized (with charges and discounts) / custom splitting in centavos, shares-equal-total trigger | ✅ |
+| **4. Balances & settlements** | `group_balances` view, Settle Up suggestions, payments with confirmation, dashboard summary, cross-group settle-up | ✅ |
+| **5. Notifications** | Notifications written by the services, reminders with cooldown, live updates with Supabase Realtime | ✅ |
+| **Screens on real data** | Every screen uses `src/lib/api.js`; mock data removed from use | ✅ |
+| **6. Deploy** | Vercel + Render + Supabase production settings | Next |
 
 ## 8. Running it locally
 
 1. **Frontend env:** `cp .env.example .env.local`. The Supabase URL and publishable key are already filled in.
 2. **Backend env:** `cd server && cp .env.example .env`, then paste the database connection string (see `server/README.md`).
-3. Install dependencies in both folders: `npm install` at the repo root and `npm install` in `server/`.
-4. Run the API and the frontend in two terminals: `cd server && npm run dev` (API on :4000) and `npm run dev` at the root (app on :5173).
+3. **Database:** all migrations up to `20261003050000_add_group_invite_codes.sql` are already applied on the `gastosaurus` Supabase project. When someone adds a new file to `supabase/migrations/`, run it once in SQL Editor (paste → Run), then check Advisors.
+4. Install dependencies in both folders: `npm install` at the repo root and `npm install` in `server/`.
+5. Run the API and the frontend in two terminals: `cd server && npm run dev` (API on :4000) and `npm run dev` at the root (app on :5173).
 
 ### Supabase dashboard settings (one-time, project owner)
 

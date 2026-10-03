@@ -1,4 +1,3 @@
-import React from 'react';
 import { 
   Globe, 
   Calendar, 
@@ -46,7 +45,9 @@ import {
   Utensils,
   GripVertical,
   Inbox,
-  CheckCircle2
+  CheckCircle2,
+  Settings,
+  RefreshCw
 } from 'lucide-react';
 
 // Custom Bowling Ball Icon matching screenshot
@@ -130,5 +131,7 @@ export {
   Utensils,
   GripVertical,
   Inbox,
-  CheckCircle2
+  CheckCircle2,
+  Settings,
+  RefreshCw
 };

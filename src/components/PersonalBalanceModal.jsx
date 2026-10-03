@@ -1,19 +1,53 @@
-import React from 'react';
-import { ShoppingBag, UtensilsCrossed, Building2, Plane } from './CustomIcons';
+import { useState } from 'react';
+import { ShoppingBag, UtensilsCrossed, Building2, Plane, Coffee, Users } from './CustomIcons';
+import { profileApi } from '../lib/api';
+import { peso } from '../lib/format';
 
-export const PersonalBalanceModal = ({ isOpen, onClose }) => {
+// Icon + color per group category (anything else falls back to the last one).
+const CATEGORY_STYLE = {
+  'Food & Dining': [UtensilsCrossed, '#E26D24'],
+  'Rent & Utilities': [Building2, '#D94668'],
+  'Travel & Trips': [Plane, '#7C4DFF'],
+  'Supplies & Groceries': [ShoppingBag, '#059669'],
+  Household: [ShoppingBag, '#059669'],
+  'Work & Cafe': [Coffee, '#B45309'],
+  other: [Users, '#4F67D8'],
+};
+
+/** "Personal Balance": your own share of group spending this month, by category, vs your budget. */
+export const PersonalBalanceModal = ({ isOpen, onClose, summary, onChanged, showToast }) => {
+  const [budgetInput, setBudgetInput] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
   if (!isOpen) return null;
 
-  const categories = [
-    { name: 'Food & Dining', spent: 4850.00, budget: 6000.00, icon: <UtensilsCrossed size={18} color="#E26D24" />, color: '#E26D24' },
-    { name: 'Rent & Utilities', spent: 5200.00, budget: 7000.00, icon: <Building2 size={18} color="#D94668" />, color: '#D94668' },
-    { name: 'Travel & Trips', spent: 1400.00, budget: 3000.00, icon: <Plane size={18} color="#7C4DFF" />, color: '#7C4DFF' },
-    { name: 'Groceries & Household', spent: 1000.00, budget: 4000.00, icon: <ShoppingBag size={18} color="#059669" />, color: '#059669' },
-  ];
+  const totalSpent = summary?.personalSpending ?? 0;
+  const budget = summary?.monthlyBudget ?? null;
+  const percentUsed = budget ? Math.min(100, Math.round((totalSpent / budget) * 100)) : 0;
+  const categories = summary?.spendingByCategory ?? [];
+  const monthLabel = summary?.month
+    ? new Date(`${summary.month}-01T00:00:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+    : 'this month';
 
-  const totalSpent = categories.reduce((sum, item) => sum + item.spent, 0);
-  const totalBudget = categories.reduce((sum, item) => sum + item.budget, 0);
-  const percentUsed = Math.round((totalSpent / totalBudget) * 100);
+  const handleSaveBudget = async (e) => {
+    e.preventDefault();
+    const value = budgetInput.trim() === '' ? null : Number(budgetInput);
+    if (value !== null && (!Number.isFinite(value) || value < 0)) {
+      showToast('Enter a budget of ₱0 or more.', 'error');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await profileApi.update({ monthlyBudget: value === null ? null : Math.round(value * 100) / 100 });
+      showToast(value === null ? 'Monthly budget removed.' : `Monthly budget set to ${peso(value)}.`);
+      setBudgetInput('');
+      onChanged();
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -22,46 +56,71 @@ export const PersonalBalanceModal = ({ isOpen, onClose }) => {
           <div className="modal-title-box">
             <h3>Personal Spending Breakdown</h3>
           </div>
-          <button className="modal-close-btn" onClick={onClose}>✕</button>
+          <button className="modal-close-btn" onClick={onClose}>
+            ✕
+          </button>
         </div>
 
         <div className="personal-balance-overview">
           <div className="personal-budget-stat">
-            <span className="stat-label">TOTAL SPENT THIS MONTH</span>
-            <h2 className="stat-amount">₱{totalSpent.toLocaleString('en-US', { minimumFractionDigits: 2 })}</h2>
-            <p className="budget-sub">Budget: ₱{totalBudget.toLocaleString('en-US', { minimumFractionDigits: 2 })} ({percentUsed}% utilized)</p>
+            <span className="stat-label">YOUR SHARE OF SPENDING · {monthLabel.toUpperCase()}</span>
+            <h2 className="stat-amount">{peso(totalSpent)}</h2>
+            <p className="budget-sub">
+              {budget !== null
+                ? `Budget: ${peso(budget)} (${percentUsed}% used${summary.budgetRemaining < 0 ? ' — over budget!' : ''})`
+                : 'No monthly budget set yet.'}
+            </p>
           </div>
 
-          <div className="budget-meter-track">
-            <div className="budget-meter-fill" style={{ width: `${percentUsed}%` }} />
-          </div>
+          {budget !== null && (
+            <div className="budget-meter-track">
+              <div className="budget-meter-fill" style={{ width: `${percentUsed}%` }} />
+            </div>
+          )}
         </div>
 
         <div className="personal-categories-list">
+          {categories.length === 0 && <p className="budget-sub">No shared expenses yet this month.</p>}
           {categories.map((cat) => {
-            const catPercent = Math.round((cat.spent / cat.budget) * 100);
+            const [Icon, color] = CATEGORY_STYLE[cat.category] ?? CATEGORY_STYLE.other;
+            const share = totalSpent ? Math.round((cat.amount / totalSpent) * 100) : 0;
             return (
-              <div key={cat.name} className="cat-spending-item">
+              <div key={cat.category} className="cat-spending-item">
                 <div className="cat-item-left">
-                  <div className="cat-icon-badge" style={{ backgroundColor: `${cat.color}15` }}>
-                    {cat.icon}
+                  <div className="cat-icon-badge" style={{ backgroundColor: `${color}15` }}>
+                    <Icon size={18} color={color} />
                   </div>
                   <div>
-                    <h4 className="cat-name">{cat.name}</h4>
-                    <span className="cat-budget-text">Budget: ₱{cat.budget.toFixed(2)}</span>
+                    <h4 className="cat-name">{cat.category}</h4>
+                    <span className="cat-budget-text">{share}% of your spending</span>
                   </div>
                 </div>
 
                 <div className="cat-item-right">
-                  <span className="cat-spent-amount">₱{cat.spent.toFixed(2)}</span>
+                  <span className="cat-spent-amount">{peso(cat.amount)}</span>
                   <div className="cat-mini-bar">
-                    <div className="cat-mini-fill" style={{ width: `${catPercent}%`, backgroundColor: cat.color }} />
+                    <div className="cat-mini-fill" style={{ width: `${share}%`, backgroundColor: color }} />
                   </div>
                 </div>
               </div>
             );
           })}
         </div>
+
+        <form className="add-member-input-row" onSubmit={handleSaveBudget}>
+          <input
+            type="number"
+            min="0"
+            step="0.01"
+            className="form-input member-quick-input"
+            placeholder={budget !== null ? `Monthly budget (now ${peso(budget)})` : 'Set a monthly budget, e.g. 20000'}
+            value={budgetInput}
+            onChange={(e) => setBudgetInput(e.target.value)}
+          />
+          <button type="submit" className="btn-add-member" disabled={isSaving}>
+            {budgetInput.trim() === '' && budget !== null ? 'Remove' : 'Save'}
+          </button>
+        </form>
 
         <div className="modal-actions">
           <button className="btn-primary-action" style={{ width: '100%' }} onClick={onClose}>

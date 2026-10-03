@@ -40,7 +40,12 @@ npm run dev                       # App → http://localhost:5173
 | Phase | |
 |---|---|
 | 1. Accounts: sign up, log in, Google, forgot password, profile | ✅ |
-| 2. Groups & invites | ⏳ next |
-| 3. Expenses & itemized splitting | |
-| 4. Balances & settlements | |
-| 5. Notifications | |
+| 2. Groups: guests, email invites, join links | ✅ |
+| 3. Expenses: equal, itemized and custom splitting | ✅ |
+| 4. Balances, Settle Up and payments | ✅ |
+| 5. Notifications, reminders, live updates | ✅ |
+| 6. Deploy | next |
+
+Every screen runs on real data. Before a release, go through **[docs/QA-CHECKLIST.md](docs/QA-CHECKLIST.md)**. It also lists the old mock-data files that are safe to delete.
+
+How the splitting works, in plain language: **[docs/HOW-THE-MONEY-WORKS.md](docs/HOW-THE-MONEY-WORKS.md)**.

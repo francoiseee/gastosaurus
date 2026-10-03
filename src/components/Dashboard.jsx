@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
 import GroupIcon from './GroupIcon';
+import { pesoParts, signedPeso, peso } from '../lib/format';
 import netBalanceMascot from '../assets/net-balance-mascot.png';
 import { 
   ArrowUp, 
@@ -8,27 +8,23 @@ import {
   Plus
 } from './CustomIcons';
 
-export const Dashboard = ({ 
-  userData, 
-  groups, 
+export const Dashboard = ({
+  summary,
+  groups,
+  isLoading,
   onSettleUpClick, 
   onPersonalBalanceClick, 
   onViewGroupClick,
   onViewAllGroups,
   onCreateGroupClick,
-  onAddAmbaganClick
 }) => {
-  const [activeFilter, setActiveFilter] = useState('all');
-
-  // Format currency with Philippine Peso sign ₱
-  const formatPesos = (val, prefix = false) => {
-    const isNegative = val < 0;
-    const absVal = Math.abs(val).toFixed(2);
-    if (prefix) {
-      return isNegative ? `-₱${absVal}` : `+₱${absVal}`;
-    }
-    return `₱${absVal}`;
-  };
+  const net = pesoParts(summary?.netBalance ?? 0);
+  const youOwe = summary?.youOwe ?? 0;
+  const youAreOwed = summary?.youAreOwed ?? 0;
+  const openTotal = youOwe + youAreOwed;
+  const owePercent = openTotal ? Math.round((youOwe / openTotal) * 100) : 0;
+  const owedPercent = openTotal ? 100 - owePercent : 0;
+  const groupsLabel = (n) => `Across ${n} ${n === 1 ? 'group' : 'groups'}`;
 
   return (
     <div className="dashboard-page-container animate-fade-in">
@@ -45,9 +41,9 @@ export const Dashboard = ({
           <div className="net-balance-content">
             <span className="stat-label">NET BALANCE</span>
             <div className="stat-main-amount">
-              <span className="amount-sign">+₱</span>
-              <span className="amount-whole">450</span>
-              <span className="amount-decimal">.00</span>
+              <span className="amount-sign">{net.sign}</span>
+              <span className="amount-whole">{net.whole}</span>
+              <span className="amount-decimal">{net.cents}</span>
             </div>
 
             <div className="net-balance-actions">
@@ -87,12 +83,12 @@ export const Dashboard = ({
           
           <div className="stat-card-mid">
             <span className="stat-label">YOU OWE</span>
-            <h2 className="stat-amount amount-negative">-₱125.50</h2>
-            <span className="stat-subtext">Across 3 groups</span>
+            <h2 className="stat-amount amount-negative">{youOwe ? `-${peso(youOwe)}` : peso(0)}</h2>
+            <span className="stat-subtext">{groupsLabel(summary?.oweGroupCount ?? 0)}</span>
           </div>
 
           <div className="stat-progress-track">
-            <div className="progress-fill owe-progress-fill" style={{ width: '35%' }} />
+            <div className="progress-fill owe-progress-fill" style={{ width: `${owePercent}%` }} />
           </div>
         </div>
 
@@ -106,12 +102,12 @@ export const Dashboard = ({
 
           <div className="stat-card-mid">
             <span className="stat-label">YOU ARE OWED</span>
-            <h2 className="stat-amount amount-positive">+₱575.50</h2>
-            <span className="stat-subtext">Across 5 groups</span>
+            <h2 className="stat-amount amount-positive">{youAreOwed ? `+${peso(youAreOwed)}` : peso(0)}</h2>
+            <span className="stat-subtext">{groupsLabel(summary?.owedGroupCount ?? 0)}</span>
           </div>
 
           <div className="stat-progress-track">
-            <div className="progress-fill owed-progress-fill" style={{ width: '70%' }} />
+            <div className="progress-fill owed-progress-fill" style={{ width: `${owedPercent}%` }} />
           </div>
         </div>
       </section>
@@ -142,10 +138,16 @@ export const Dashboard = ({
           </div>
         </div>
 
+        {!isLoading && groups.length === 0 && (
+          <p className="overview-subtitle">
+            No groups yet. Create one, add your barkada, and start splitting. 🦖
+          </p>
+        )}
+
         {/* Groups Grid */}
         <div className="active-groups-grid">
           {groups.slice(0, 6).map((group) => {
-            const isNegative = group.balance < 0;
+            const isNegative = group.statusType === 'owe';
             return (
               <div 
                 key={group.id} 
@@ -157,12 +159,7 @@ export const Dashboard = ({
                     className="group-icon-box"
                     style={{ backgroundColor: group.iconBg || '#FFEBEF' }}
                   >
-                    <GroupIcon 
-                      iconId={group.iconId} 
-                      iconType={group.iconType} 
-                      size={40} 
-                      alt={group.name} 
-                    />
+                    <GroupIcon iconId={group.iconId} size={40} alt={group.name} />
                   </div>
                   <div className="group-info">
                     <h3 className="group-name">{group.name}</h3>
@@ -173,10 +170,7 @@ export const Dashboard = ({
                 <div className="group-card-footer">
                   <span className="balance-label">Your Balance</span>
                   <span className={`balance-value ${isNegative ? 'negative' : 'positive'}`}>
-                    {isNegative 
-                      ? `-₱${Math.abs(group.balance).toFixed(2)}` 
-                      : `+₱${group.balance.toFixed(2)}`
-                    }
+                    {signedPeso(group.balance)}
                   </span>
                 </div>
               </div>

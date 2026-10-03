@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import mascotImg from '../assets/mascot.png';
-import { Bell, Check, ArrowRight } from './CustomIcons';
+import { Bell } from './CustomIcons';
+import { timeAgo } from '../lib/format';
 
 export const Navbar = ({ 
   currentTab, 
   onSelectTab, 
   onNavigateHome, 
   notifications = [],
-  unreadCount = 2,
+  unreadCount = 0,
   onOpenNotifs,
   userName,
   onLogout
@@ -87,20 +88,30 @@ export const Navbar = ({
                   <span className="badge-pill">{unreadCount} new</span>
                 </div>
                 <div className="notif-list">
-                  {notifications.map((notif) => (
+                  {notifications.length === 0 && (
+                    <div className="notif-item read">
+                      <div className="notif-content">
+                        <p className="notif-title">You're all caught up. 🦖</p>
+                      </div>
+                    </div>
+                  )}
+                  {notifications.slice(0, 6).map((notif) => (
                     <div key={notif.id} className={`notif-item ${notif.read ? 'read' : 'unread'}`}>
                       <div className="notif-content">
                         <p className="notif-title">{notif.title}</p>
-                        <span className="notif-time">{notif.time}</span>
+                        <span className="notif-time">{timeAgo(notif.createdAt)}</span>
                       </div>
                     </div>
                   ))}
                 </div>
-                <button 
+                <button
                   className="notif-footer-btn"
-                  onClick={() => setIsNotifOpen(false)}
+                  onClick={() => {
+                    setIsNotifOpen(false);
+                    onOpenNotifs?.();
+                  }}
                 >
-                  Close
+                  See all notifications
                 </button>
               </div>
             )}
