@@ -54,7 +54,7 @@ There are three parts:
 | Token check | `jose` | Verifies Supabase access tokens against the project's public keys (JWKS). |
 | Database | Supabase Postgres 17 via `pg` | Parameterized SQL only (`$1, $2…`), and never string-built values. |
 | Tests | `node --test` | The API is tested against a local throwaway Postgres and a fake Supabase Auth server. |
-| Hosting (suggested) | Vercel (frontend) · Render (API) · Supabase (DB + auth) | All have free tiers. See §9. |
+| Hosting | Vercel (frontend + API as a Function) · Supabase (DB + auth) | Both have free tiers. See §9. |
 
 ---
 
@@ -354,14 +354,14 @@ All endpoints require `Authorization: Bearer <token>`. `:groupId` routes require
 | 4 ✅ | `GET /api/groups/:groupId/balances` | `{ me, members[net], suggestedSettlements, isSettled }` | SettlementsView, GroupMembersView |
 | 4 ✅ | `GET /api/me/summary?month=YYYY-MM` | Net balance, you owe, you are owed, group counts, monthly spending vs budget (month in Asia/Manila) | Dashboard cards, PersonalBalanceModal |
 | 4 ✅ | `GET /api/me/settle-up` | Across all groups: `toPay`, `toReceive`, payments awaiting confirmation, recent payments | SettlementsView |
-| 4 ✅ | `GET/POST /api/groups/:groupId/settlements` | List / record a payment `{ toMemberId, amount, method, fromMemberId?, note? }` | PaymentView, SettleUpModal |
+| 4 ✅ | `GET/POST /api/groups/:groupId/settlements` | List / record a payment `{ toMemberId, amount, method, fromMemberId?, note? }` | PaymentView, SettlementsView |
 | 4 ✅ | `PATCH /api/settlements/:id` `{ status: "completed" }` · `DELETE` | Receiver confirms / withdraw or undo | SettlementsView |
 | 2 ✅ | `POST /api/invites/join` `{ code }` · `POST /api/groups/:groupId/invite-code` | Join with a share link · reset the link (admin) | InviteMemberView |
 | 5 ✅ | `GET /api/notifications?limit&before&unread=true` | `{ notifications, unreadCount }` | Navbar bell, NotificationsView |
 | 5 ✅ | `PATCH /api/notifications/:id/read` · `POST /api/notifications/read-all` · `DELETE /api/notifications/:id` | Mark read / clear | NotificationsView |
 | 5 ✅ | `POST /api/groups/:groupId/reminders` `{ memberIds? }` | Nudge members who owe → `{ sent, skipped }` | SettlementsView, GroupDetailModal |
 
-Every screen now uses these through `src/lib/api.js`; `mockData.js` is no longer imported anywhere.
+Every screen uses these through `src/lib/api.js`. The old mock data has been removed.
 
 ---
 
@@ -374,7 +374,7 @@ Every screen now uses these through `src/lib/api.js`; `mockData.js` is no longer
 | **3. Expenses** | Equal / itemized (with charges and discounts) / custom splitting in centavos, shares-equal-total trigger | ✅ |
 | **4. Balances & settlements** | `group_balances` view, Settle Up suggestions, payments with confirmation, dashboard summary, cross-group settle-up | ✅ |
 | **5. Notifications** | Notifications written by the services, reminders with cooldown, live updates with Supabase Realtime | ✅ |
-| **Screens on real data** | Every screen uses `src/lib/api.js`; mock data removed from use | ✅ |
+| **Screens on real data** | Every screen uses `src/lib/api.js`; mock data and unused components deleted | ✅ |
 | **6. Deploy** | Vercel + Render + Supabase production settings | Next |
 
 ## 8. Running it locally
@@ -395,11 +395,12 @@ Every screen now uses these through `src/lib/api.js`; `mockData.js` is no longer
 
 ---
 
-## 9. Deployment (when ready)
+## 9. Deployment
 
-- **Frontend → Vercel.** Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`. To keep `/api` same-origin, add a `vercel.json` rewrite from `/api/(.*)` to `https://<your-render-app>.onrender.com/api/$1`. Otherwise set `VITE_API_URL` and the server's `CLIENT_ORIGIN`.
-- **API → Render** (Web Service, root `server/`, start command `npm start`). Set `NODE_ENV=production`, `DATABASE_URL` (pooler string), `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` and `CLIENT_ORIGIN`.
-- **Supabase.** Add the production URL to Auth → URL Configuration. Run `get advisors` in the dashboard (Advisors) after every migration.
+Everything runs on **one Vercel project**: Vite builds the React app, and `api/index.js` runs the Express app as a
+Vercel Function in `sin1` (Singapore, next to the database). `vercel.json` rewrites `/api/*` to it, so the app and API
+share one origin. The database uses Supabase's **transaction pooler** (port 6543). Step-by-step instructions, every
+environment variable, and the Supabase settings are in [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## 10. Conventions
 

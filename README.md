@@ -1,5 +1,7 @@
 # 🦖 Gastosaurus
 
+[![Made with AI](https://img.shields.io/badge/Made_with-AI_assistance-blue)](AI-USAGE.md)
+
 Group expense tracker with "ambagan"-style auto-splitting: add an expense, tag who paid and who it's for, and everyone's share updates instantly, including itemized splits.
 
 - **Frontend:** React + Vite (`src/`)
@@ -46,6 +48,10 @@ npm run dev                       # App → http://localhost:5173
 | 5. Notifications, reminders, live updates | ✅ |
 | 6. Deploy | next |
 
-Every screen runs on real data. Before a release, go through **[docs/QA-CHECKLIST.md](docs/QA-CHECKLIST.md)**. It also lists the old mock-data files that are safe to delete.
+Every screen runs on real data. Before a release, go through **[docs/QA-CHECKLIST.md](docs/QA-CHECKLIST.md)**.
 
 How the splitting works, in plain language: **[docs/HOW-THE-MONEY-WORKS.md](docs/HOW-THE-MONEY-WORKS.md)**.
+
+## AI credit
+
+Built with heavy AI assistance. I wrote the React frontend with help from Google Antigravity. Claude (Claude Code, Claude Opus 5.5) wrote the backend (`server/`, `supabase/`) and connected the frontend to it. What the AI did, where it got things wrong, and which parts are ours: **[AI-USAGE.md](AI-USAGE.md)**.
