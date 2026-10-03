@@ -7058,6 +7058,18 @@
   color: #7C3AED;
 }
 
+.reassign-menu-item.split-with-opt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.reassign-menu-item.split-with-opt.is-selected {
+  color: #7C3AED;
+  background-color: #FAF5FF;
+}
+
 .reassign-menu-item.unassign-opt {
   color: #DC2626;
   border-top: 1px solid #F3F4F6;
