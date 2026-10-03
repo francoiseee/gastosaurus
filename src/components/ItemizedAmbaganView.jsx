@@ -79,6 +79,35 @@ export const ItemizedAmbaganView = ({
     if (item) setItemMembers(itemId, item.memberIds.filter((id) => id !== bucketId));
   };
 
+  /** Put a set of member ids on an item, kept in group order. */
+  const shareItem = (itemId, memberIds) => {
+    const set = new Set(memberIds);
+    setItemMembers(itemId, members.map((m) => m.id).filter((id) => set.has(id)));
+  };
+
+  /** "Split with → All": everyone in the group shares the item equally. */
+  const splitWithAll = (itemId) => {
+    const item = itemById(itemId);
+    if (!item) return;
+    shareItem(itemId, members.map((m) => m.id));
+    flash(`Split "${item.name}" with everyone (${peso(item.price / members.length)} each)! 🤝`);
+  };
+
+  /** "Split with → <name>": add/remove one person; the bucket owner always stays on it. */
+  const toggleSplitWith = (itemId, ownerId, memberId) => {
+    const item = itemById(itemId);
+    if (!item) return;
+    const has = item.memberIds.includes(memberId);
+    const next = has ? item.memberIds.filter((id) => id !== memberId) : [...item.memberIds, memberId];
+    if (!next.includes(ownerId)) next.push(ownerId);
+    shareItem(itemId, next);
+    flash(
+      has
+        ? `Removed ${nameOf[memberId]} from "${item.name}".`
+        : `Split "${item.name}" with ${nameOf[memberId]} (${peso(item.price / next.length)} each)! 🤝`,
+    );
+  };
+
   const handleRemoveItem = (itemId) =>
     onDraftChange((d) => ({ ...d, items: d.items.filter((i) => i.id !== itemId) }));
 
@@ -360,7 +389,7 @@ export const ItemizedAmbaganView = ({
                           draggable
                           onDragStart={(e) => handleDragStart(e, assigned.id, bucket.id)}
                           onDragEnd={endDrag}
-                          title="Drag to move to another person, or use the reassign menu"
+                          title="Drag to move to another person, or use the split menu"
                         >
                           <div className="assigned-item-left">
                             <GripVertical size={14} className="drag-handle-icon" />
@@ -375,41 +404,58 @@ export const ItemizedAmbaganView = ({
                                 type="button"
                                 className="btn-reassign-item"
                                 onClick={() => setActiveReassignMenu(isMenuOpen ? null : { bucketId: bucket.id, itemId: assigned.id })}
-                                title="Reassign to another person"
+                                title="Split with others"
+                                aria-label="Split with others"
                               >
-                                ⇄
+                                <Users size={12} color="#FFFFFF" strokeWidth={2.4} />
                               </button>
 
-                              {isMenuOpen && (
-                                <div className="reassign-dropdown-menu animate-fade-in">
-                                  <span className="reassign-menu-title">Reassign to:</span>
-                                  {members
-                                    .filter((m) => m.id !== bucket.id)
-                                    .map((target) => (
-                                      <button
-                                        key={target.id}
-                                        type="button"
-                                        className="reassign-menu-item"
-                                        onClick={() => {
-                                          setActiveReassignMenu(null);
-                                          moveItem(assigned.id, bucket.id, target.id);
-                                        }}
-                                      >
-                                        → {nameOf[target.id]}
-                                      </button>
-                                    ))}
-                                  <button
-                                    type="button"
-                                    className="reassign-menu-item unassign-opt"
-                                    onClick={() => {
-                                      setActiveReassignMenu(null);
-                                      handleUnassignItem(bucket.id, assigned.id);
-                                    }}
-                                  >
-                                    ↩ Unassign Item
-                                  </button>
-                                </div>
-                              )}
+                              {isMenuOpen && (() => {
+                                const sharedBy = itemById(assigned.id)?.memberIds ?? [];
+                                const sharedWithAll = members.every((m) => sharedBy.includes(m.id));
+                                return (
+                                  <div className="reassign-dropdown-menu animate-fade-in">
+                                    <span className="reassign-menu-title">Split with:</span>
+                                    <button
+                                      type="button"
+                                      className={`reassign-menu-item split-with-opt ${sharedWithAll ? 'is-selected' : ''}`}
+                                      onClick={() => {
+                                        setActiveReassignMenu(null);
+                                        splitWithAll(assigned.id);
+                                      }}
+                                    >
+                                      <span>All</span>
+                                      {sharedWithAll && <Check size={13} color="#7C3AED" strokeWidth={3} />}
+                                    </button>
+                                    {members
+                                      .filter((m) => m.id !== bucket.id)
+                                      .map((target) => {
+                                        const isOn = sharedBy.includes(target.id);
+                                        return (
+                                          <button
+                                            key={target.id}
+                                            type="button"
+                                            className={`reassign-menu-item split-with-opt ${isOn ? 'is-selected' : ''}`}
+                                            onClick={() => toggleSplitWith(assigned.id, bucket.id, target.id)}
+                                          >
+                                            <span>{nameOf[target.id]}</span>
+                                            {isOn && <Check size={13} color="#7C3AED" strokeWidth={3} />}
+                                          </button>
+                                        );
+                                      })}
+                                    <button
+                                      type="button"
+                                      className="reassign-menu-item unassign-opt"
+                                      onClick={() => {
+                                        setActiveReassignMenu(null);
+                                        handleUnassignItem(bucket.id, assigned.id);
+                                      }}
+                                    >
+                                      ↩ Unassign Item
+                                    </button>
+                                  </div>
+                                );
+                              })()}
                             </div>
 
                             <button
