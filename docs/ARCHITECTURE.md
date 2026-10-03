@@ -54,7 +54,7 @@ There are three parts:
 | Token check | `jose` | Verifies Supabase access tokens against the project's public keys (JWKS). |
 | Database | Supabase Postgres 17 via `pg` | Parameterized SQL only (`$1, $2…`), and never string-built values. |
 | Tests | `node --test` | The API is tested against a local throwaway Postgres and a fake Supabase Auth server. |
-| Hosting (suggested) | Vercel (frontend) · Render (API) · Supabase (DB + auth) | All have free tiers. See §9. |
+| Hosting | Vercel (frontend + API as a Function) · Supabase (DB + auth) | Both have free tiers. See §9. |
 
 ---
 
@@ -395,11 +395,12 @@ Every screen uses these through `src/lib/api.js`. The old mock data has been rem
 
 ---
 
-## 9. Deployment (when ready)
+## 9. Deployment
 
-- **Frontend → Vercel.** Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY`. To keep `/api` same-origin, add a `vercel.json` rewrite from `/api/(.*)` to `https://<your-render-app>.onrender.com/api/$1`. Otherwise set `VITE_API_URL` and the server's `CLIENT_ORIGIN`.
-- **API → Render** (Web Service, root `server/`, start command `npm start`). Set `NODE_ENV=production`, `DATABASE_URL` (pooler string), `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` and `CLIENT_ORIGIN`.
-- **Supabase.** Add the production URL to Auth → URL Configuration. Run `get advisors` in the dashboard (Advisors) after every migration.
+Everything runs on **one Vercel project**: Vite builds the React app, and `api/index.js` runs the Express app as a
+Vercel Function in `sin1` (Singapore, next to the database). `vercel.json` rewrites `/api/*` to it, so the app and API
+share one origin. The database uses Supabase's **transaction pooler** (port 6543). Step-by-step instructions, every
+environment variable, and the Supabase settings are in [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## 10. Conventions
 

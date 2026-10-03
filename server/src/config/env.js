@@ -9,7 +9,8 @@ function required(name) {
   return value;
 }
 
-const nodeEnv = process.env.NODE_ENV ?? 'development';
+// On Vercel, NODE_ENV isn't always set at runtime, so treat a Vercel deployment as production.
+const nodeEnv = process.env.NODE_ENV ?? (process.env.VERCEL ? 'production' : 'development');
 
 export const env = {
   nodeEnv,

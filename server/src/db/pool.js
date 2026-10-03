@@ -5,11 +5,22 @@ import { env } from '../config/env.js';
 // Convert them deliberately in the service layer when needed.
 pg.types.setTypeParser(pg.types.builtins.NUMERIC, (value) => value);
 
+// On Vercel each function instance keeps a small pool (the Supabase pooler does
+// the real pooling); locally and on a normal server we keep up to 10.
+const onVercel = Boolean(process.env.VERCEL);
+
 export const pool = new pg.Pool({
   connectionString: env.databaseUrl,
   ssl: env.databaseSsl ? { rejectUnauthorized: false } : undefined,
-  max: 10,
+  max: onVercel ? 5 : 10,
+  idleTimeoutMillis: onVercel ? 5_000 : 10_000,
 });
+
+// Let Vercel close idle connections before it suspends the function.
+if (onVercel) {
+  const { attachDatabasePool } = await import('@vercel/functions');
+  attachDatabasePool(pool);
+}
 
 pool.on('error', (err) => {
   console.error('Unexpected Postgres pool error', err);
