@@ -1,4 +1,4 @@
-import { getGroupIconSrc, GROUP_ICONS } from '../data/groupIcons';
+import { getGroupIconSrc } from '../data/groupIcons';
 
 /**
  * GroupIcon Component
@@ -22,7 +22,7 @@ export const GroupIcon = ({
     } else if (iconType) {
       imageSrc = getGroupIconSrc(iconType);
     } else {
-      imageSrc = GROUP_ICONS[0].src;
+      imageSrc = getGroupIconSrc(null);
     }
   }
 

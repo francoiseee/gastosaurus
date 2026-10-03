@@ -2308,6 +2308,34 @@
   border-radius: 28px;
 }
 
+/* Category select + "Other" custom name, side by side */
+.category-field-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+
+.category-field-row.has-custom {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
+.custom-category-input {
+  border-color: rgba(226, 72, 110, 0.45);
+}
+
+.custom-category-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 520px) {
+  .category-field-row.has-custom {
+    grid-template-columns: 1fr;
+  }
+}
+
 .create-group-body-grid {
   display: grid;
   grid-template-columns: 1fr 1.15fr;
