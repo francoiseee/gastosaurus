@@ -1,16 +1,46 @@
-# React + Vite
+# 🦖 Gastosaurus
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Group expense tracker with "ambagan"-style auto-splitting: add an expense, tag who paid and who it's for, and everyone's share updates instantly, including itemized splits.
 
-Currently, two official plugins are available:
+- **Frontend:** React + Vite (`src/`)
+- **Auth & database:** Supabase (project `gastosaurus`)
+- **API:** Node.js + Express + PostgreSQL (`server/`)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+📐 Read the **[system architecture](docs/ARCHITECTURE.md)** first.
 
-## React Compiler
+## Quick start
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+```bash
+# 1. Frontend
+npm install
+cp .env.example .env.local        # Supabase URL + publishable key are pre-filled
 
-## Expanding the ESLint configuration
+# 2. Backend
+cd server
+npm install
+cp .env.example .env              # paste the DATABASE_URL — see server/README.md
+npm run dev                       # API → http://localhost:4000
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+# 3. In another terminal, from the repo root
+npm run dev                       # App → http://localhost:5173
+```
+
+## Scripts
+
+| Where | Command | What it does |
+|---|---|---|
+| root | `npm run dev` | Start the React app (proxies `/api` to the backend) |
+| root | `npm run build` | Production build into `dist/` |
+| root | `npm run lint` | ESLint |
+| server | `npm run dev` | Start the API with auto-restart |
+| server | `npm test` | API tests (local Postgres) |
+
+## Status
+
+| Phase | |
+|---|---|
+| 1. Accounts: sign up, log in, Google, forgot password, profile | ✅ |
+| 2. Groups & invites | ⏳ next |
+| 3. Expenses & itemized splitting | |
+| 4. Balances & settlements | |
+| 5. Notifications | |

@@ -8330,3 +8330,80 @@
   border: 2px solid #FFFFFF;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
 }
+
+/* ============================================================
+   Auth: API error / info messages, logout + landing login buttons
+   ============================================================ */
+.auth-alert {
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.auth-alert-error {
+  background-color: var(--red-badge-bg);
+  color: var(--red-text);
+  border: 1px solid rgba(211, 47, 47, 0.2);
+}
+
+.auth-alert-info {
+  background-color: var(--pink-badge-bg);
+  color: var(--text-primary);
+  border: 1px solid rgba(226, 72, 110, 0.2);
+}
+
+.auth-input.has-error {
+  border-color: var(--red-badge-color);
+}
+
+.auth-input.has-error:focus {
+  box-shadow: 0 0 0 3px rgba(211, 47, 47, 0.12);
+}
+
+.auth-field-error {
+  margin: 6px 0 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--red-text);
+}
+
+.social-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.navbar-logout-btn,
+.landing-login-btn {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background-color: #FFFFFF;
+  border: 1px solid rgba(228, 204, 212, 0.7);
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
+  white-space: nowrap;
+}
+
+.navbar-logout-btn:hover,
+.landing-login-btn:hover {
+  background-color: var(--pill-bg-pink);
+}
+
+.auth-back-link {
+  align-self: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+
+.auth-back-link:hover {
+  color: var(--text-primary);
+}
+
+.auth-success-screen .btn-auth-submit {
+  margin-top: 16px;
+}

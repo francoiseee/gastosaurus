@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Navbar from './components/Navbar';
 import LandingPage from './components/LandingPage';
 import Dashboard from './components/Dashboard';
@@ -18,11 +18,21 @@ import AddExpenseModal from './components/AddExpenseModal';
 import CreateGroupModal from './components/CreateGroupModal';
 import AuthModal from './components/AuthModal';
 import { mockUserData, mockGroups, mockSettlements, mockNotifications } from './data/mockData';
+import { supabase } from './lib/supabase';
+import { profileApi } from './lib/api';
 import './App.css';
 
 function App() {
   // Current view: 'landing' | 'dashboard' | 'groups' | 'settlements' | 'payment' | 'group-members' | 'invite-member' | 'expenses-detail' | 'notifications'
-  const [currentView, setCurrentView] = useState('landing');
+  const [requestedView, setCurrentView] = useState('landing');
+
+  // Auth — the logged-in user's profile (null = logged out).
+  // Supabase keeps the session; our API (/api/me) returns the profile.
+  const [authUser, setAuthUser] = useState(null);
+  const welcomedUserId = useRef(null);
+
+  // Everything except the landing page requires a logged-in user.
+  const currentView = authUser ? requestedView : 'landing';
   const [previousView, setPreviousView] = useState('dashboard');
   
   // App state
@@ -42,8 +52,75 @@ function App() {
   const [isAddExpenseOpen, setIsAddExpenseOpen] = useState(false);
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
 
+  // Listen to Supabase Auth: restores "Keep me logged in" sessions on load,
+  // finishes Google sign-in / email-link redirects, and reacts to log out.
+  useEffect(() => {
+    if (!supabase) return undefined;
+
+    const loadProfile = async (session) => {
+      try {
+        return await profileApi.get();
+      } catch (err) {
+        // API not running? Still let the user in using what Supabase knows.
+        console.warn('[auth] Could not load profile from /api/me:', err.message);
+        const meta = session.user.user_metadata || {};
+        return {
+          id: session.user.id,
+          email: session.user.email,
+          name: meta.name || meta.full_name || session.user.email?.split('@')[0] || 'Budget Dino',
+        };
+      }
+    };
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setAuthMode('update-password');
+        setIsAuthOpen(true);
+      }
+
+      if (!session) {
+        setAuthUser(null);
+        return;
+      }
+
+      if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        // Supabase recommends not awaiting other Supabase calls inside this callback.
+        setTimeout(async () => {
+          const profile = await loadProfile(session);
+          setAuthUser(profile);
+          setUserData(prev => ({ ...prev, name: profile.name }));
+
+          // Returning visitor (or back from Google): skip the landing page.
+          if (event === 'INITIAL_SESSION') {
+            setCurrentView(view => (view === 'landing' ? 'dashboard' : view));
+          }
+
+          if (welcomedUserId.current !== profile.id) {
+            welcomedUserId.current = profile.id;
+            setNotifications(prev => [
+              {
+                id: `notif-${Date.now()}`,
+                title: `Welcome to Gastosaurus, ${profile.name}! 🦖`,
+                time: 'Just now',
+                read: false,
+                type: 'auth'
+              },
+              ...prev
+            ]);
+          }
+        }, 0);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   // Trigger Auth Modal from Landing Page
   const handleStartSaving = (mode = 'signup') => {
+    if (authUser) {
+      setCurrentView('dashboard');
+      return;
+    }
     setAuthMode(mode);
     setIsAuthOpen(true);
   };
@@ -54,30 +131,20 @@ function App() {
   };
 
   // Auth Success -> Redirect to Dashboard!
-  const handleAuthSuccess = (loggedUser) => {
+  // (The Supabase listener above loads the profile and adds the welcome notification.)
+  const handleAuthSuccess = () => {
     setIsAuthOpen(false);
-    
-    if (loggedUser && loggedUser.name) {
-      setUserData(prev => ({
-        ...prev,
-        name: loggedUser.name
-      }));
-    }
-
-    // Add welcome notification
-    setNotifications(prev => [
-      {
-        id: `notif-${Date.now()}`,
-        title: `Welcome to Gastosaurus, ${loggedUser?.name || 'Budget Dino'}! 🦖`,
-        time: 'Just now',
-        read: false,
-        type: 'auth'
-      },
-      ...prev
-    ]);
-
-    // Seamless redirect to dashboard
     setCurrentView('dashboard');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleLogout = async () => {
+    await supabase?.auth.signOut();
+    setAuthUser(null);
+    welcomedUserId.current = null;
+    setUserData(mockUserData);
+    setNotifications(mockNotifications);
+    setCurrentView('landing');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -366,6 +433,8 @@ function App() {
           onNavigateHome={handleNavigateHome}
           notifications={notifications}
           unreadCount={notifications.filter(n => !n.read).length}
+          userName={authUser?.name}
+          onLogout={handleLogout}
         />
       )}
 
@@ -375,7 +444,8 @@ function App() {
           <LandingPage
             onStartSaving={() => handleStartSaving('signup')}
             onOpenAuth={handleOpenAuth}
-            onOpenDashboard={() => setCurrentView('dashboard')}
+            onOpenDashboard={() => (authUser ? setCurrentView('dashboard') : handleOpenAuth('login'))}
+            isLoggedIn={!!authUser}
           />
         )}
 
