@@ -2,15 +2,17 @@
 
 [![Made with AI](https://img.shields.io/badge/Made_with-AI_assistance-blue)](AI-USAGE.md)
 
+![Gastosaurus Screenshot](src/assets/mascot.png)
+
 Group expense tracker with "ambagan"-style auto-splitting: add an expense, tag who paid and who it's for, and everyone's share updates instantly, including itemized splits.
 
 - **Frontend:** React + Vite (`src/`)
 - **Auth & database:** Supabase (project `gastosaurus`)
 - **API:** Node.js + Express + PostgreSQL (`server/`), deployed as a Vercel Function (`api/`)
 
-🌐 **Live app:** https://gastosaurus-francoise.vercel.app/
+**Live app:** https://gastosaurus-francoise.vercel.app/
 
-📐 Read the **[system architecture](docs/ARCHITECTURE.md)** first.
+Read the **[system architecture](docs/ARCHITECTURE.md)** first.
 
 ## Quick start
 
