@@ -41,7 +41,7 @@ npm run dev                       # App → http://localhost:5173
 
 | Phase | |
 |---|---|
-| 1. Accounts: sign up, log in, Google, forgot password, profile | ✅ |
+| 1. Accounts: sign up, log in, forgot password, profile | ✅ |
 | 2. Groups: guests, email invites, join links | ✅ |
 | 3. Expenses: equal, itemized and custom splitting | ✅ |
 | 4. Balances, Settle Up and payments | ✅ |

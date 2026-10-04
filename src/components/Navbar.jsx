@@ -1,5 +1,5 @@
 import mascotImg from '../assets/mascot.png';
-import { Bell, LogOut, Sparkles } from './CustomIcons';
+import { Bell, LogOut } from './CustomIcons';
 import Avatar from './Avatar';
 
 const TABS = [
@@ -66,9 +66,6 @@ export const Navbar = ({
             >
               <Avatar person={currentPerson} className="navbar-dino-avatar" size={30} />
               <span className="navbar-profile-name">{currentPerson.name}</span>
-              <span className="navbar-profile-badge">
-                <Sparkles size={11} />
-              </span>
             </button>
           )}
 

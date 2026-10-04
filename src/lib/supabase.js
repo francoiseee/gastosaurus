@@ -1,4 +1,4 @@
-// The one Supabase client for the whole app. Handles sign-up, login, Google,
+// The one Supabase client for the whole app. Handles sign-up, login,
 // password reset, and keeping the session fresh (auto refresh).
 import { createClient } from '@supabase/supabase-js';
 
@@ -32,7 +32,7 @@ const authStorage = {
   getItem: (key) => safe(() => localStorage.getItem(key) ?? sessionStorage.getItem(key)),
   setItem: (key, value) =>
     safe(() => {
-      // PKCE verifiers must survive the trip to Google / an email link (which may
+      // PKCE verifiers must survive the trip to an email link (which may
       // open in a new tab), so they always go to localStorage. Only the session
       // itself follows the "Keep me logged in" choice.
       const persistent = shouldRemember() || key.includes('code-verifier');
@@ -54,7 +54,7 @@ export const supabase = isSupabaseConfigured
         storage: authStorage,
         persistSession: true,
         autoRefreshToken: true,
-        detectSessionInUrl: true, // finishes Google login / email links on return
+        detectSessionInUrl: true, // finishes email links (confirm / reset) on return
         flowType: 'pkce',
       },
     })
@@ -79,9 +79,6 @@ export function friendlyAuthError(error) {
   }
   if (code === 'over_email_send_rate_limit' || msg.includes('rate limit')) {
     return 'Too many emails sent. Please wait a bit and try again.';
-  }
-  if (msg.includes('provider is not enabled') || (code === 'validation_failed' && msg.includes('provider'))) {
-    return 'Google sign-in isn’t switched on yet for this project.';
   }
   if (msg.includes('error sending') || (msg.includes('email address') && msg.includes('not authorized'))) {
     return 'We couldn’t send the email. (Project owner: set up email in Supabase → Authentication.)';

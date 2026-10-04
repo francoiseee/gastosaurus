@@ -63,8 +63,8 @@
   --mascot-circle-bg: #D4B6C8;
   --bank-illustration-color: #F1CED7;
 
-  --container-pattern-bg: linear-gradient(rgba(255, 255, 255, 0.60), rgba(255, 255, 255, 0.60)), url('./assets/container-background.png');
-  --container-pattern-bg-subtle: linear-gradient(rgba(255, 255, 255, 0.60), rgba(255, 255, 255, 0.60)), url('./assets/container-background.png');
+  --container-pattern-bg: linear-gradient(rgba(255, 255, 255, 0.60), rgba(255, 255, 255, 0.60)), url('./assets/container-background.webp');
+  --container-pattern-bg-subtle: linear-gradient(rgba(255, 255, 255, 0.60), rgba(255, 255, 255, 0.60)), url('./assets/container-background.webp');
 
   /* ── Borders ──────────────────────────────────────────────────────────── */
   --border-light: rgba(235, 210, 218, 0.6);

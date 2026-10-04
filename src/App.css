@@ -16,6 +16,10 @@
   color: var(--text-primary);
 }
 
+.page-loading {
+  min-height: 60vh;
+}
+
 .main-content-area {
   flex: 1;
   width: 100%;
@@ -382,14 +386,6 @@
   border-color: var(--brand-primary);
   color: var(--text-on-dark);
   box-shadow: 0 2px 8px rgba(33, 37, 45, 0.18);
-}
-
-/* ── Surfaces ──────────────────────────────────────────────────────────── */
-.surface-card {
-  background-color: var(--bg-card);
-  border: 1px solid var(--border-card);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
 }
 
 /* ── Banners (inline success / error) ──────────────────────────────────── */
@@ -1332,50 +1328,6 @@ textarea.form-input,
   background-color: var(--color-positive);
 }
 
-/* Dino badge in the page intro */
-.dashboard-dino-badge-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-3);
-  height: 52px;
-  padding: 0 var(--space-4) 0 6px;
-  border-radius: var(--radius-full);
-  border: 1px solid var(--border-card);
-  background-color: var(--bg-card);
-  box-shadow: var(--shadow-sm);
-}
-
-.dashboard-dino-badge-btn:hover {
-  border-color: rgba(226, 109, 36, 0.5);
-  box-shadow: 0 6px 16px -2px rgba(226, 109, 36, 0.18);
-  transform: translateY(-1px);
-}
-
-.dashboard-header-avatar {
-  border: 2px solid var(--bg-card);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-}
-
-.dashboard-avatar-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  text-align: left;
-}
-
-.dashboard-avatar-dino-name {
-  font-size: var(--text-2xs);
-  font-weight: var(--weight-bold);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
-.dashboard-avatar-change-hint {
-  font-size: var(--text-sm);
-  font-weight: var(--weight-extrabold);
-  color: var(--peach-badge-color);
-}
 
 /* Section header (title + count + actions) */
 .active-groups-section {
@@ -2143,36 +2095,6 @@ textarea.form-input,
   width: 15px;
   height: 15px;
   border-radius: var(--radius-xs);
-}
-
-
-/* Divider */
-.auth-divider {
-  display: flex;
-  align-items: center;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: var(--text-xs);
-}
-
-.auth-divider::before, .auth-divider::after {
-  content: '';
-  flex: 1;
-  border-bottom: 1px solid var(--border-card);
-}
-
-.auth-divider span {
-  padding: 0 var(--space-3);
-}
-
-/* Social Buttons */
-.auth-social-single {
-  width: 100%;
-}
-
-.social-icon {
-  width: 17px;
-  height: 17px;
 }
 
 /* Success Screen Animation */
@@ -6007,18 +5929,6 @@ textarea.form-input,
   text-overflow: ellipsis;
 }
 
-.navbar-profile-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: #E26D24;
-  background: #FFF0E6;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  margin-left: -2px;
-}
-
 @media (max-width: 1024px) {
   .navbar-profile-name {
     display: none;
@@ -6029,21 +5939,7 @@ textarea.form-input,
     padding: 0;
     justify-content: center;
   }
-
-  .navbar-profile-badge {
-    display: none;
-  }
 }
-
-
-
-
-
-
-
-
-
-/* Dino Picker Modal Backdrop */
 
 /* Dino Picker Modal Card */
 .dino-picker-modal-card {
@@ -6065,8 +5961,6 @@ textarea.form-input,
     transform: scale(1) translateY(0);
   }
 }
-
-/* Close Button */
 
 /* Header */
 .dino-picker-header {
@@ -6093,7 +5987,6 @@ textarea.form-input,
   border-radius: var(--radius-full);
   margin-bottom: 2px;
   box-shadow: 0 2px 6px rgba(124, 58, 237, 0.1);
-  animation: shimmerPill 3s infinite ease-in-out;
 }
 
 .sparkle-icon {
@@ -6432,7 +6325,6 @@ textarea.form-input,
     width: 100%;
   }
 }
-
 
 /* Dino picker: sections keep their natural height inside the scrolling modal */
 .dino-picker-modal-card > * {

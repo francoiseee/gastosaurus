@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import ribbonIcon from '../assets/ribbon.png';
 import PageHeader from './PageHeader';
-import { ArrowLeft, Plus, ReceiptText, CreditCard, Users, Calendar, DollarSign, TrendingUp, ChevronRight, UserCheck, Trash2 } from './CustomIcons';
+import { ArrowLeft, Plus, ReceiptText, CreditCard, Users, Calendar, Wallet, TrendingUp, ChevronRight, UserCheck, Trash2 } from './CustomIcons';
 import Avatar from './Avatar';
 import { groupsApi, expensesApi } from '../lib/api';
 import { useAsync } from '../hooks/useAsync';
@@ -154,7 +154,7 @@ export const ExpensesDetailView = ({
               <div className="mini-card-top">
                 <span className="eyebrow">Your balance</span>
                 <div className={`mini-icon-circle ${group.balance >= 0 ? 'owed-circle' : 'owe-circle'}`}>
-                  <DollarSign size={16} color={group.balance >= 0 ? '#7E57C2' : '#D32F2F'} />
+                  <Wallet size={16} />
                 </div>
               </div>
               <h3 className={`mini-card-amount ${group.balance >= 0 ? 'positive-text' : 'negative-text'}`}>
