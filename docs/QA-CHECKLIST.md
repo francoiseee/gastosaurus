@@ -59,5 +59,3 @@ Start both servers first: `cd server && npm run dev`, then `npm run dev` at the 
 ## Cleanup status
 
 The old mock data (`src/data/mockData.js`) and the unused components (`AddExpenseModal`, `SettleUpModal`, `BankIllustration`) have been deleted, along with their styles in `src/App.css`. `npm run lint` is clean.
-
-Still to decide: the root `assets/` folder holds the original art files. The app uses the copies in `src/assets/`, so it can go once the designer is fine with that.
