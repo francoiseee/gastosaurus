@@ -162,7 +162,7 @@ export const SettlementsView = ({ refreshKey, onNavigatePayment, onViewGroupMemb
 
   const renderAction = (row, idPrefix) => (
     <button
-      className={`btn-table-pay ${row.kind === 'paid' ? 'btn-paid-disabled' : ''}`}
+      className={`btn btn-sm ${row.kind === 'paid' ? 'btn-muted' : 'btn-primary'}`}
       onClick={() => act(row)}
       disabled={row.kind === 'paid' || busyId === row.id}
       id={`${idPrefix}-${row.id}`}
@@ -175,16 +175,18 @@ export const SettlementsView = ({ refreshKey, onNavigatePayment, onViewGroupMemb
 
   return (
     <div className="settlements-page-container animate-fade-in">
-      <div className="settlements-header-section">
-        <h1 className="settlements-page-title">Balances & Settlement</h1>
-        <p className="settlements-page-subtitle">Manage your shared expenses and open tabs seamlessly.</p>
+      <div className="page-intro">
+        <div className="page-intro-text">
+          <h1 className="page-title">Balances &amp; Settlement</h1>
+          <p className="page-subtitle">Manage your shared expenses and open tabs seamlessly.</p>
+        </div>
       </div>
 
       <div className="settlements-summary-grid">
         <div className="settlement-stat-card card-owe">
           <div className="stat-card-inner">
             <div className="stat-card-text">
-              <span className="stat-card-label">TOTAL YOU OWE</span>
+              <span className="eyebrow">Total you owe</span>
               <div className="stat-card-amount owe-amount">{peso(data?.totalToPay ?? 0)}</div>
             </div>
             <div className="stat-card-icon-wrap owe-arrow">
@@ -193,7 +195,7 @@ export const SettlementsView = ({ refreshKey, onNavigatePayment, onViewGroupMemb
               </div>
             </div>
           </div>
-          <button className="btn-settle-debts-action" onClick={handleSettleAll} id="btn-settle-all-debts">
+          <button className="btn btn-primary" onClick={handleSettleAll} id="btn-settle-all-debts">
             Settle All Debts
           </button>
         </div>
@@ -201,7 +203,7 @@ export const SettlementsView = ({ refreshKey, onNavigatePayment, onViewGroupMemb
         <div className="settlement-stat-card card-owed">
           <div className="stat-card-inner">
             <div className="stat-card-text">
-              <span className="stat-card-label">TOTAL YOU ARE OWED</span>
+              <span className="eyebrow">Total you are owed</span>
               <div className="stat-card-amount owed-amount">{peso(data?.totalToReceive ?? 0)}</div>
             </div>
             <div className="stat-card-icon-wrap owed-arrow">
@@ -210,14 +212,14 @@ export const SettlementsView = ({ refreshKey, onNavigatePayment, onViewGroupMemb
               </div>
             </div>
           </div>
-          <button className="btn-send-reminders-action" onClick={handleSendReminders} id="btn-send-reminders">
+          <button className="btn btn-soft" onClick={handleSendReminders} id="btn-send-reminders">
             Send Reminders
           </button>
         </div>
       </div>
 
       <div className="settlements-filter-bar">
-        <div className="filter-pills-group">
+        <div className="chip-group" role="group" aria-label="Filter settlements">
           {[
             ['all', 'All'],
             ['owed', 'Owed'],
@@ -226,7 +228,7 @@ export const SettlementsView = ({ refreshKey, onNavigatePayment, onViewGroupMemb
           ].map(([id, label]) => (
             <button
               key={id}
-              className={`filter-pill-btn ${filter === id ? 'active' : ''}`}
+              className={`chip ${filter === id ? 'active' : ''}`}
               onClick={() => setFilter(id)}
               id={`filter-pill-${id}`}
             >
@@ -236,7 +238,7 @@ export const SettlementsView = ({ refreshKey, onNavigatePayment, onViewGroupMemb
         </div>
 
         <div className="group-members-link-wrap">
-          <button className="btn-see-group-members" onClick={onViewGroupMembers} id="btn-see-group-members">
+          <button className="btn btn-ghost btn-sm" onClick={onViewGroupMembers} id="btn-see-group-members">
             <span>See Group Members</span>
             <ArrowRight size={14} strokeWidth={2.4} />
           </button>
@@ -309,17 +311,17 @@ export const SettlementsView = ({ refreshKey, onNavigatePayment, onViewGroupMemb
 
               <div className="settlement-mobile-amounts-grid">
                 <div className="mobile-amount-item">
-                  <span className="mobile-amount-label">AMOUNT</span>
+                  <span className="mobile-amount-label">Amount</span>
                   <span className={`mobile-amount-val ${done ? 'text-dimmed' : ''}`}>{peso(row.amount)}</span>
                 </div>
                 <div className="mobile-amount-item">
-                  <span className="mobile-amount-label">UNPAID</span>
+                  <span className="mobile-amount-label">Unpaid</span>
                   <span className={`mobile-amount-val ${row.unpaid > 0 ? 'text-unpaid-red' : ''} ${done ? 'text-dimmed' : ''}`}>
                     {peso(row.unpaid)}
                   </span>
                 </div>
                 <div className="mobile-amount-item">
-                  <span className="mobile-amount-label">TOTAL PAID</span>
+                  <span className="mobile-amount-label">Paid</span>
                   <span className={`mobile-amount-val highlight ${done ? 'text-dimmed' : ''}`}>{peso(row.paid)}</span>
                 </div>
               </div>

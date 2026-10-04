@@ -2,7 +2,7 @@ import { useState } from 'react';
 import GroupIcon from './GroupIcon';
 import Avatar from './Avatar';
 import { GROUP_ICONS, ICON_SETS } from '../data/groupIcons';
-import { Plus, Trash2 } from './CustomIcons';
+import { Plus, Trash2, X } from './CustomIcons';
 import { groupsApi } from '../lib/api';
 import { useAsync } from '../hooks/useAsync';
 import { peso, signedPeso } from '../lib/format';
@@ -84,31 +84,31 @@ export const GroupDetailModal = ({ groupId, refreshKey, isOpen, onClose, onChang
             >
               <GroupIcon iconId={group.iconId} size={36} alt={group.name} />
             </div>
-            <div>
-              <div className="group-title-row">
-                <h3>{group.name}</h3>
-                {isAdmin && (
-                  <button type="button" className="change-icon-tag-btn" onClick={() => setIsChangingIcon(!isChangingIcon)}>
-                    {isChangingIcon ? 'Close Icons' : 'Change Icon'}
-                  </button>
-                )}
-                {isAdmin && !editing && (
-                  <button
-                    type="button"
-                    className="change-icon-tag-btn"
-                    onClick={() => setEditing({ name: group.name, note: group.note ?? '' })}
-                  >
-                    Edit
-                  </button>
-                )}
-              </div>
+            <div className="modal-title-text">
+              <h3>{group.name}</h3>
               <span className="modal-sub">
                 {group.membersCount} members • {group.category}
               </span>
+              {isAdmin && (
+                <div className="group-title-row">
+                  <button type="button" className="change-icon-tag-btn" onClick={() => setIsChangingIcon(!isChangingIcon)}>
+                    {isChangingIcon ? 'Close icons' : 'Change icon'}
+                  </button>
+                  {!editing && (
+                    <button
+                      type="button"
+                      className="change-icon-tag-btn"
+                      onClick={() => setEditing({ name: group.name, note: group.note ?? '' })}
+                    >
+                      Edit details
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
-          <button className="modal-close-btn" onClick={onClose} aria-label="Close">
-            ✕
+          <button type="button" className="modal-close-btn" onClick={onClose} aria-label="Close">
+            <X size={16} />
           </button>
         </div>
 
@@ -137,10 +137,10 @@ export const GroupDetailModal = ({ groupId, refreshKey, isOpen, onClose, onChang
               />
             </div>
             <div className="modal-actions">
-              <button type="button" className="btn-secondary" onClick={() => setEditing(null)}>
+              <button type="button" className="btn btn-muted" onClick={() => setEditing(null)}>
                 Cancel
               </button>
-              <button type="submit" className="btn-primary-action" disabled={busy}>
+              <button type="submit" className="btn btn-primary" disabled={busy}>
                 Save
               </button>
             </div>
@@ -150,15 +150,15 @@ export const GroupDetailModal = ({ groupId, refreshKey, isOpen, onClose, onChang
         {isChangingIcon && (
           <div className="quick-change-icon-drawer animate-fade-in">
             <div className="drawer-header">
-              <span className="drawer-title">Choose from 3 Icon Sets:</span>
-              <div className="drawer-tabs">
-                <button className={`drawer-tab-btn ${activeSet === 'all' ? 'active' : ''}`} onClick={() => setActiveSet('all')}>
+              <span className="drawer-title">Choose an icon</span>
+              <div className="chip-group drawer-tabs">
+                <button className={`chip chip-sm ${activeSet === 'all' ? 'active' : ''}`} onClick={() => setActiveSet('all')}>
                   All ({GROUP_ICONS.length})
                 </button>
                 {ICON_SETS.map((s) => (
                   <button
                     key={s.id}
-                    className={`drawer-tab-btn ${activeSet === s.id ? 'active' : ''}`}
+                    className={`chip chip-sm ${activeSet === s.id ? 'active' : ''}`}
                     onClick={() => setActiveSet(s.id)}
                   >
                     {s.label.split(' ')[0]}
@@ -185,7 +185,7 @@ export const GroupDetailModal = ({ groupId, refreshKey, isOpen, onClose, onChang
 
         <div className="group-detail-balance-banner">
           <div>
-            <span className="stat-label">YOUR STATUS IN THIS GROUP</span>
+            <span className="eyebrow">Your status in this group</span>
             <h3 className={`balance-value ${group.statusType === 'owe' ? 'negative' : 'positive'}`}>
               {group.statusType === 'owe'
                 ? `You owe ${peso(group.balance)}`
@@ -223,28 +223,42 @@ export const GroupDetailModal = ({ groupId, refreshKey, isOpen, onClose, onChang
             ))}
           </div>
           {balances.suggestedSettlements.length > 0 && (
-            <p className="modal-sub" style={{ marginTop: 10 }}>
-              To settle:{' '}
-              {balances.suggestedSettlements.map((p) => `${p.from.name} → ${p.to.name} ${peso(p.amount)}`).join(' · ')}
-            </p>
+            <div className="settle-suggestions">
+              <span className="eyebrow">Suggested payments</span>
+              <ul>
+                {balances.suggestedSettlements.map((p) => (
+                  <li key={`${p.from.memberId ?? p.from.name}-${p.to.memberId ?? p.to.name}`}>
+                    <span>
+                      {p.from.name} <span aria-hidden="true">→</span> {p.to.name}
+                    </span>
+                    <strong>{peso(p.amount)}</strong>
+                  </li>
+                ))}
+              </ul>
+            </div>
           )}
         </div>
 
         <div className="modal-actions group-detail-actions">
           {isAdmin && (
-            <button className="btn-secondary" onClick={handleDelete} disabled={busy || !balances.isSettled} title={balances.isSettled ? 'Delete group' : 'Settle all balances first'}>
+            <button
+              className="btn btn-danger-outline group-detail-delete"
+              onClick={handleDelete}
+              disabled={busy || !balances.isSettled}
+              title={balances.isSettled ? 'Delete group' : 'Settle all balances first'}
+            >
               <Trash2 size={16} /> Delete
             </button>
           )}
           {!balances.isSettled && (
-            <button className="btn-secondary" onClick={handleRemind}>
+            <button className="btn btn-muted" onClick={handleRemind}>
               Remind
             </button>
           )}
-          <button className="btn-secondary" onClick={onAddExpenseToGroup}>
+          <button className="btn btn-muted" onClick={onAddExpenseToGroup}>
             <Plus size={16} /> Add Ambagan
           </button>
-          <button className="btn-primary-action" onClick={onClose}>
+          <button className="btn btn-primary" onClick={onClose}>
             Done
           </button>
         </div>

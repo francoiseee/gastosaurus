@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { ArrowLeft, Bell, Check, Landmark, QrCode, Banknote, CreditCard, CheckCircle2 } from 'lucide-react';
+import { Check, Landmark, QrCode, Banknote, CreditCard, CheckCircle2 } from 'lucide-react';
+import PageHeader from './PageHeader';
 import Avatar from './Avatar';
 import { settlementsApi } from '../lib/api';
-import { formatDate, todayISO } from '../lib/format';
+import { formatDate, todayISO, peso } from '../lib/format';
 
 /**
  * Pay one or more suggested settlements (rows from SettlementsView with
@@ -77,51 +78,40 @@ export const PaymentView = ({ items = [], onBack, onDone, showToast, onOpenNotif
 
   return (
     <div className="payment-page-container animate-fade-in">
-      {/* Top Header Bar (Matching Screenshots 1 & 2) */}
-      <header className="payment-header-bar">
-        <button 
-          className="btn-header-back" 
-          onClick={onBack}
-          aria-label="Back to settlements"
-          title="Back to Settlements"
-          id="btn-back-to-settlements"
-        >
-          <ArrowLeft size={20} color="#1E2026" strokeWidth={2.2} />
-        </button>
-
-        <h2 className="payment-header-title">Payment</h2>
-
-        <div className="payment-header-actions">
-          <button className="header-notif-btn" aria-label="Notifications" onClick={onOpenNotifications}>
-            <Bell size={20} color="#1E2026" />
-            {unreadCount > 0 && <span className="header-notif-dot" />}
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        title="Payment"
+        onBack={onBack}
+        backLabel="Back to settlements"
+        backId="btn-back-to-settlements"
+        unreadCount={unreadCount}
+        onOpenNotifications={onOpenNotifications}
+      />
 
       {/* Main Payment Content Grid */}
       <div className="payment-content-wrapper">
         {/* Left Column: Settle Balances & Owed Items */}
         <div className="payment-main-col">
           {/* Page Heading */}
-          <div className="payment-page-header">
-            <h1 className="payment-main-title">Settle Balances</h1>
-            <p className="payment-main-subtitle">
-              Review your outstanding amounts and complete the settlement process to clear your balances.
-            </p>
+          <div className="page-intro">
+            <div className="page-intro-text">
+              <h1 className="page-title">Settle Balances</h1>
+              <p className="page-subtitle">
+                Review your outstanding amounts and complete the settlement process to clear your balances.
+              </p>
+            </div>
           </div>
 
           {/* Toast Notification */}
           {toastMessage && (
-            <div className="payment-toast-banner animate-fade-in">
-              <CheckCircle2 size={18} color="#059669" />
+            <div className="banner banner-success payment-toast-banner animate-fade-in">
+              <CheckCircle2 size={18} />
               <span>{toastMessage}</span>
             </div>
           )}
 
           {/* Owed Items Section Header */}
           <div className="owed-items-section-header">
-            <span className="owed-items-label">OWED ITEMS</span>
+            <span className="eyebrow">Owed items</span>
             <button 
               type="button" 
               className="owed-items-count-btn"
@@ -168,9 +158,7 @@ export const PaymentView = ({ items = [], onBack, onDone, showToast, onOpenNotif
 
                   {/* Amount on Right */}
                   <div className="owed-item-right">
-                    <span className="owed-amount-value">
-                      ₱ {Number(item.amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
+                    <span className="owed-amount-value">{peso(item.amount)}</span>
                   </div>
                 </div>
               );
@@ -198,7 +186,7 @@ export const PaymentView = ({ items = [], onBack, onDone, showToast, onOpenNotif
 
             {/* Payment Method Used */}
             <div className="payment-methods-section">
-              <span className="payment-methods-label">PAYMENT METHOD USED</span>
+              <span className="eyebrow payment-methods-label">Payment method</span>
 
               <div className="payment-methods-grid">
                 {/* 1. Bank Transfer */}
@@ -209,8 +197,7 @@ export const PaymentView = ({ items = [], onBack, onDone, showToast, onOpenNotif
                   id="btn-method-bank"
                 >
                   <Landmark size={22} className="method-icon" />
-                  <span className="method-name desktop-only">Bank Transfer</span>
-                  <span className="method-name mobile-only">Bank Xfer</span>
+                  <span className="method-name">Bank</span>
                 </button>
 
                 {/* 2. GCash */}
@@ -240,12 +227,12 @@ export const PaymentView = ({ items = [], onBack, onDone, showToast, onOpenNotif
             {/* Action CTA Button */}
             <button
               type="button"
-              className="btn-confirm-settle-action"
+              className="btn btn-primary btn-lg btn-block"
               onClick={handleConfirmAction}
               disabled={isProcessing || selectedIds.length === 0}
               id="btn-confirm-and-settle"
             >
-              <Banknote size={20} className="confirm-icon" />
+              <Banknote size={20} />
               <span>{isProcessing ? 'Processing Settlement...' : 'Confirm & Settle'}</span>
             </button>
 

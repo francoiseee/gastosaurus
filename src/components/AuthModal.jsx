@@ -7,7 +7,8 @@ import {
   User,
   Eye,
   EyeOff,
-  ArrowRight
+  ArrowRight,
+  X,
 } from './CustomIcons';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -83,12 +84,12 @@ const AuthModalContent = ({ initialMode = 'login', onClose, onAuthSuccess }) => 
     if (fieldErrors[field]) setFieldErrors((prev) => ({ ...prev, [field]: undefined }));
   };
 
-  const finishWithSuccess = (message) => {
+  const finishWithSuccess = (message, isSignUp = false, user = null) => {
     setSuccessMessage(message);
     setIsSuccess(true);
     setTimeout(() => {
       setIsSuccess(false);
-      if (onAuthSuccess) onAuthSuccess();
+      if (onAuthSuccess) onAuthSuccess({ isSignUp, user });
     }, 1100);
   };
 
@@ -111,7 +112,7 @@ const AuthModalContent = ({ initialMode = 'login', onClose, onAuthSuccess }) => 
         const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
         if (error) throw error;
         const displayName = data.user?.user_metadata?.name || 'Budget Dino';
-        finishWithSuccess(`Welcome back, ${displayName}!`);
+        finishWithSuccess(`Welcome back, ${displayName}!`, false, data.user);
       }
 
       if (mode === 'signup') {
@@ -131,7 +132,7 @@ const AuthModalContent = ({ initialMode = 'login', onClose, onAuthSuccess }) => 
         } else if (!data.session) {
           switchMode('check-email');
         } else {
-          finishWithSuccess(`Welcome to the herd, ${name.trim()}!`);
+          finishWithSuccess(`Welcome to the herd, ${name.trim()}!`, true, data.user);
         }
       }
 
@@ -181,24 +182,25 @@ const AuthModalContent = ({ initialMode = 'login', onClose, onAuthSuccess }) => 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div
-        className="auth-modal-card animate-fade-in"
+        className="modal-card auth-modal-card animate-fade-in"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
       >
         {/* Close Button */}
         <button
+          type="button"
           className="auth-close-btn"
           onClick={onClose}
-          aria-label="Close modal"
+          aria-label="Close"
         >
-          ✕
+          <X size={16} />
         </button>
 
         {/* Mascot Header */}
         <div className="auth-header-visual">
           <div className="auth-mascot-circle">
-            <img src={mascotImg} alt="Gastosaurus Mascot" className="auth-mascot-img" />
+            <img src={mascotImg} alt="" className="auth-mascot-img" />
           </div>
           <h2 className="auth-title">{title}</h2>
           <p className="auth-subtitle">{subtitle}</p>
@@ -250,7 +252,7 @@ const AuthModalContent = ({ initialMode = 'login', onClose, onAuthSuccess }) => 
               Don&apos;t see it? It can take a minute or two. Check your <strong>Spam</strong> or{' '}
               <strong>Promotions</strong> folder too.
             </p>
-            <button type="button" className="btn-auth-submit" onClick={() => switchMode('login')}>
+            <button type="button" className="btn btn-primary btn-lg btn-block" onClick={() => switchMode('login')}>
               <span>Back to Log In</span>
               <ArrowRight size={18} />
             </button>
@@ -363,7 +365,7 @@ const AuthModalContent = ({ initialMode = 'login', onClose, onAuthSuccess }) => 
             {/* Primary Submit Button */}
             <button
               type="submit"
-              className="btn-auth-submit"
+              className="btn btn-primary btn-lg btn-block auth-submit"
               disabled={isSubmitting || !isSupabaseConfigured}
             >
               {isSubmitting ? (
@@ -393,7 +395,7 @@ const AuthModalContent = ({ initialMode = 'login', onClose, onAuthSuccess }) => 
                 <div className="auth-social-single">
                   <button
                     type="button"
-                    className="social-btn google-btn full-width"
+                    className="btn btn-outline btn-lg btn-block"
                     onClick={handleGoogle}
                     disabled={isSubmitting || !isSupabaseConfigured}
                   >

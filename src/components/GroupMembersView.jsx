@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ArrowLeft, Bell, CreditCard, UserPlus, LogOut, Mail, X, Calendar, DollarSign, Settings } from './CustomIcons';
+import { ArrowLeft, CreditCard, UserPlus, LogOut, Mail, X, Calendar, DollarSign, Settings, ReceiptText } from './CustomIcons';
+import PageHeader from './PageHeader';
 import LeaveGroupModal from './LeaveGroupModal';
 import Avatar from './Avatar';
 import { groupsApi, invitesApi } from '../lib/api';
@@ -57,10 +58,17 @@ export const GroupMembersView = ({
   if (!data) {
     return (
       <div className="group-members-page-container animate-fade-in">
-        <div className="members-view-content">
-          <p className="members-subtitle">{error ? error.message : loading ? 'Loading group…' : ''}</p>
+        <PageHeader
+          title="Group"
+          onBack={onBack}
+          backLabel="Back to groups"
+          unreadCount={unreadCount}
+          onOpenNotifications={onOpenNotifications}
+        />
+        <div className="page-state">
+          <p className="page-subtitle">{error ? error.message : loading ? 'Loading group…' : ''}</p>
           {error && (
-            <button className="btn-outline-pill" onClick={onBack}>
+            <button className="btn btn-outline" onClick={onBack}>
               <ArrowLeft size={16} /> Back to groups
             </button>
           )}
@@ -129,39 +137,21 @@ export const GroupMembersView = ({
 
   return (
     <div className="group-members-page-container animate-fade-in">
-      {/* Top GastoFriends Header Bar */}
-      <header className="gastofriends-header-bar">
-        <button
-          className="btn-header-back"
-          onClick={onBack}
-          aria-label="Back to groups"
-          title="Back to Active Groups"
-          id="btn-back-to-groups"
-        >
-          <ArrowLeft size={20} color="#1E2026" strokeWidth={2.2} />
-        </button>
-
-        <h2 className="gastofriends-title">{group.name}</h2>
-
-        <div className="gastofriends-actions">
-          <button
-            className="header-notif-btn"
-            onClick={onOpenNotifications}
-            aria-label="Notifications"
-            id="btn-members-notif"
-          >
-            <Bell size={20} color="#1E2026" />
-            {unreadCount > 0 && <span className="header-notif-dot" />}
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        title={group.name}
+        onBack={onBack}
+        backLabel="Back to groups"
+        backId="btn-back-to-groups"
+        unreadCount={unreadCount}
+        onOpenNotifications={onOpenNotifications}
+      />
 
       <div className="members-view-content">
         {/* Total spending, note, and who carries how much of it */}
         <div className="ambagan-tracker-section">
           <div className="ambagan-left-card-box">
             <div className="ambagan-total-box">
-              <span className="ambagan-total-label">TOTAL AMOUNT</span>
+              <span className="eyebrow">Total amount</span>
               <h1 className="ambagan-total-amount">{peso(group.totalSpending)}</h1>
             </div>
 
@@ -173,7 +163,7 @@ export const GroupMembersView = ({
 
           <div className="ambagan-breakdown-card">
             <div className="breakdown-card-header">
-              <span className="breakdown-card-title">SPLIT BREAKDOWN</span>
+              <span className="eyebrow">Split breakdown</span>
             </div>
 
             <div className="breakdown-chart-wrapper">
@@ -215,24 +205,24 @@ export const GroupMembersView = ({
         </div>
 
         {/* Page Title & Top Actions Row */}
-        <div className="members-page-header">
-          <div className="members-header-text">
-            <h1 className="members-main-title">Group Members</h1>
-            <p className="members-subtitle">Manage members for '{group.name}'</p>
+        <div className="page-intro">
+          <div className="page-intro-text">
+            <h1 className="page-title">Group Members</h1>
+            <p className="page-subtitle">Manage members for &lsquo;{group.name}&rsquo;</p>
           </div>
 
-          <div className="members-top-actions desktop-only">
-            <button className="btn-outline-pill" onClick={onOpenDetails} id="btn-desktop-group-details">
+          <div className="page-actions desktop-only">
+            <button className="btn btn-outline" onClick={onOpenDetails} id="btn-desktop-group-details">
               <Settings size={16} /> Group Details
             </button>
-            <button className="btn-outline-pill" onClick={onViewSettlements} id="btn-desktop-view-settlements">
+            <button className="btn btn-outline" onClick={onViewSettlements} id="btn-desktop-view-settlements">
               <CreditCard size={16} /> View Settlements
             </button>
-            <button className="btn-outline-pill" onClick={onNavigateInviteMember} id="btn-desktop-invite-member">
+            <button className="btn btn-outline" onClick={onNavigateInviteMember} id="btn-desktop-invite-member">
               <UserPlus size={16} /> Invite Member
             </button>
             <button
-              className="btn-danger-pill"
+              className="btn btn-danger-outline"
               onClick={() => setIsLeaveModalOpen(true)}
               disabled={busy}
               id="btn-desktop-leave-group"
@@ -242,30 +232,28 @@ export const GroupMembersView = ({
           </div>
         </div>
 
-        {/* Mobile Top Actions Stack */}
-        <div className="members-mobile-actions-stack mobile-only">
-          <button className="btn-mobile-action-card" onClick={onNavigateInviteMember} id="btn-mobile-invite-member">
-            Invite Member
+        {/* Mobile actions (2×2 grid + leave) */}
+        <div className="members-mobile-actions mobile-only">
+          <button className="btn btn-outline" onClick={onNavigateInviteMember} id="btn-mobile-invite-member">
+            <UserPlus size={16} /> Invite
           </button>
-          <button className="btn-mobile-action-card" onClick={onViewExpensesDetail} id="btn-mobile-expenses-detail">
-            Expenses Detail
+          <button className="btn btn-outline" onClick={onViewExpensesDetail} id="btn-mobile-expenses-detail">
+            <ReceiptText size={16} /> Expenses
           </button>
-          <button className="btn-mobile-action-card" onClick={onOpenDetails} id="btn-mobile-group-details">
-            Group Details
+          <button className="btn btn-outline" onClick={onOpenDetails} id="btn-mobile-group-details">
+            <Settings size={16} /> Details
           </button>
-          <div className="mobile-action-row-split">
-            <button className="btn-mobile-action-pill" onClick={onViewSettlements} id="btn-mobile-view-settlements">
-              <CreditCard size={16} /> View Settlements
-            </button>
-            <button
-              className="btn-mobile-action-pill danger"
-              onClick={() => setIsLeaveModalOpen(true)}
-              disabled={busy}
-              id="btn-mobile-leave-group"
-            >
-              <LogOut size={16} /> Leave Group
-            </button>
-          </div>
+          <button className="btn btn-outline" onClick={onViewSettlements} id="btn-mobile-view-settlements">
+            <CreditCard size={16} /> Settlements
+          </button>
+          <button
+            className="btn btn-danger-outline members-mobile-leave"
+            onClick={() => setIsLeaveModalOpen(true)}
+            disabled={busy}
+            id="btn-mobile-leave-group"
+          >
+            <LogOut size={16} /> Leave Group
+          </button>
         </div>
 
         {/* Members Cards Grid */}
@@ -303,7 +291,7 @@ export const GroupMembersView = ({
                         autoFocus
                         required
                       />
-                      <button type="submit" className="btn-add-member" disabled={busy}>
+                      <button type="submit" className="btn btn-soft btn-sm" disabled={busy}>
                         Send
                       </button>
                     </form>
@@ -317,7 +305,7 @@ export const GroupMembersView = ({
                 </span>
                 {member.isGuest && !pendingInvites.some((i) => i.memberId === member.id) && (
                   <button
-                    className="btn-resend-invite"
+                    className="btn btn-text"
                     onClick={() => setInviteFor(inviteFor === member.id ? null : member.id)}
                     title="Invite this guest by email so they can claim their spot"
                   >
@@ -326,7 +314,7 @@ export const GroupMembersView = ({
                 )}
                 {isAdmin && !member.isCurrentUser && (
                   <button
-                    className="btn-dismiss-invite"
+                    className="icon-btn icon-btn-sm icon-btn-ghost"
                     onClick={() => handleRemoveMember(member)}
                     aria-label={`Remove ${member.name}`}
                     title="Remove from group (only when settled)"
@@ -346,7 +334,7 @@ export const GroupMembersView = ({
               <div key={invite.id} className="pending-invite-card">
                 <div className="pending-invite-left">
                   <div className="pending-icon-wrap">
-                    <Mail size={20} color="#7E8492" />
+                    <Mail size={20} />
                   </div>
                   <div className="pending-info">
                     <h4 className="pending-title">{guest ? `${guest.name} (invited)` : 'Pending Invite'}</h4>
@@ -356,11 +344,11 @@ export const GroupMembersView = ({
                 </div>
 
                 <div className="pending-invite-actions">
-                  <button className="btn-resend-invite" onClick={() => handleResend(invite)} disabled={busy}>
+                  <button className="btn btn-text" onClick={() => handleResend(invite)} disabled={busy}>
                     Resend
                   </button>
                   <button
-                    className="btn-dismiss-invite"
+                    className="icon-btn icon-btn-sm icon-btn-ghost"
                     onClick={() => handleCancelInvite(invite)}
                     aria-label="Cancel invite"
                     title="Cancel invite"
@@ -374,19 +362,12 @@ export const GroupMembersView = ({
           })}
         </div>
 
-        {/* Desktop Bottom Action Dock */}
-        <div className="desktop-bottom-actions-dock desktop-only">
-          <button className="btn-expenses-detail-dock" onClick={onViewExpensesDetail} id="btn-desktop-expenses-detail">
-            Expenses Detail
+        {/* Bottom actions */}
+        <div className="page-bottom-actions">
+          <button className="btn btn-outline desktop-only" onClick={onViewExpensesDetail} id="btn-desktop-expenses-detail">
+            <ReceiptText size={16} /> Expenses Detail
           </button>
-          <button className="btn-add-expenses-dock" onClick={onAddExpense} id="btn-desktop-add-expenses">
-            Add Expenses
-          </button>
-        </div>
-
-        {/* Mobile Bottom Fixed Action */}
-        <div className="mobile-bottom-dock mobile-only">
-          <button className="btn-mobile-add-expenses" onClick={onAddExpense} id="btn-mobile-add-expenses">
+          <button className="btn btn-primary btn-mobile-block" onClick={onAddExpense} id="btn-add-expenses">
             Add Expenses
           </button>
         </div>

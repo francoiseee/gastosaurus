@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import mascotImg from '../assets/mascot.png';
-import { ArrowLeft, ArrowRight, Bell, Delete, Plus, CheckCircle2, ChevronDown } from './CustomIcons';
+import { ArrowRight, Delete, Plus, CheckCircle2, ChevronDown } from './CustomIcons';
+import PageHeader from './PageHeader';
 import Avatar from './Avatar';
 import { groupsApi } from '../lib/api';
 import { useAsync } from '../hooks/useAsync';
@@ -193,26 +194,13 @@ export const AddExpenseCalculatorView = ({
 
   return (
     <div className="add-expense-calculator-page animate-fade-in">
-      {/* Top Header Bar */}
-      <header className="calc-header-bar">
-        <button 
-          className="btn-header-back" 
-          onClick={onBack}
-          aria-label="Go back"
-          id="btn-back-from-calculator"
-        >
-          <ArrowLeft size={20} color="#1E2026" strokeWidth={2.2} />
-        </button>
-
-        <h2 className="calc-header-title">Add Expenses</h2>
-
-        <div className="calc-header-actions">
-          <button className="header-notif-btn" aria-label="Notifications" onClick={onOpenNotifications}>
-            <Bell size={20} color="#1E2026" />
-            {unreadCount > 0 && <span className="header-notif-dot" />}
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        title="Add Expenses"
+        onBack={onBack}
+        backId="btn-back-from-calculator"
+        unreadCount={unreadCount}
+        onOpenNotifications={onOpenNotifications}
+      />
 
       {/* Main Content Area with Center Mascot Watermark */}
       <div className="calc-main-container">
@@ -223,8 +211,8 @@ export const AddExpenseCalculatorView = ({
 
         {/* Toast Alert */}
         {toastMessage && (
-          <div className="calc-toast-banner animate-fade-in">
-            <CheckCircle2 size={18} color="#D94668" />
+          <div className="banner banner-success calc-toast-banner animate-fade-in">
+            <CheckCircle2 size={18} />
             <span>{toastMessage}</span>
           </div>
         )}
@@ -303,7 +291,7 @@ export const AddExpenseCalculatorView = ({
           <div className="calc-right-col">
             <div className="for-whom-card">
               {groups.length > 1 && (
-                <div className="custom-select-wrapper" style={{ marginBottom: 14 }}>
+                <div className="custom-select-wrapper">
                   <select
                     className="form-select custom-select-input"
                     value={groupId}
@@ -325,7 +313,7 @@ export const AddExpenseCalculatorView = ({
                 <h3 className="for-whom-title">For Whom?</h3>
                 <button 
                   type="button" 
-                  className="btn-select-all" 
+                  className="btn btn-ghost btn-sm" 
                   onClick={handleSelectAll}
                   id="btn-select-all-members"
                 >
@@ -364,7 +352,7 @@ export const AddExpenseCalculatorView = ({
                   id="btn-add-for-whom-person"
                 >
                   <div className="avatar-add-circle">
-                    <Plus size={20} color="#7E8492" strokeWidth={2.4} />
+                    <Plus size={20} strokeWidth={2.4} />
                   </div>
                   <span className="avatar-person-label">Add</span>
                 </div>
@@ -382,10 +370,10 @@ export const AddExpenseCalculatorView = ({
                     autoFocus
                   />
                   <div className="inline-form-actions">
-                    <button type="submit" className="btn-inline-add" disabled={isSavingPerson}>
+                    <button type="submit" className="btn btn-primary btn-sm" disabled={isSavingPerson}>
                       {isSavingPerson ? 'Adding…' : 'Add'}
                     </button>
-                    <button type="button" className="btn-inline-cancel" onClick={() => setIsAddingPerson(false)}>Cancel</button>
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => setIsAddingPerson(false)}>Cancel</button>
                   </div>
                 </form>
               )}
@@ -397,7 +385,7 @@ export const AddExpenseCalculatorView = ({
         <div className="calc-bottom-action-bar">
           <button
             type="button"
-            className="btn-calc-continue"
+            className="btn btn-primary btn-lg btn-mobile-block"
             onClick={handleContinue}
             id="btn-calc-continue-action"
           >

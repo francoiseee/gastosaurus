@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import GroupIcon from './GroupIcon';
 import ribbonIcon from '../assets/ribbon.png';
-import { ArrowLeft, Bell, Plus, ReceiptText, CreditCard, Users, Calendar, DollarSign, TrendingUp, ChevronRight, UserCheck, Trash2 } from './CustomIcons';
+import PageHeader from './PageHeader';
+import { ArrowLeft, Plus, ReceiptText, CreditCard, Users, Calendar, DollarSign, TrendingUp, ChevronRight, UserCheck, Trash2 } from './CustomIcons';
 import Avatar from './Avatar';
 import { groupsApi, expensesApi } from '../lib/api';
 import { useAsync } from '../hooks/useAsync';
@@ -35,8 +35,15 @@ export const ExpensesDetailView = ({
   if (!detail) {
     return (
       <div className="expenses-detail-page-container animate-fade-in">
-        <div className="expenses-page-content">
-          <p className="expenses-subheading">{groupQuery.error ? groupQuery.error.message : 'Loading expenses…'}</p>
+        <PageHeader
+          title="Expenses"
+          onBack={onBack}
+          backLabel="Back to group members"
+          unreadCount={unreadCount}
+          onOpenNotifications={onOpenNotifications}
+        />
+        <div className="page-state">
+          <p className="page-subtitle">{groupQuery.error ? groupQuery.error.message : 'Loading expenses…'}</p>
         </div>
       </div>
     );
@@ -78,50 +85,30 @@ export const ExpensesDetailView = ({
 
   return (
     <div className="expenses-detail-page-container animate-fade-in">
-      <header className="expenses-header-bar">
-        <button
-          className="btn-header-back"
-          onClick={onBack}
-          aria-label="Back to group members"
-          title="Back to Group Members"
-          id="btn-back-to-members"
-        >
-          <ArrowLeft size={20} color="#1E2026" strokeWidth={2.2} />
-        </button>
-
-        <div className="expenses-header-center">
-          <h2 className="expenses-header-title">Expenses Breakdown</h2>
-          <span className="expenses-header-group-name">{group.name}</span>
-        </div>
-
-        <div className="expenses-header-actions">
-          <button className="header-notif-btn" aria-label="Notifications" onClick={onOpenNotifications}>
-            <Bell size={20} color="#1E2026" />
-            {unreadCount > 0 && <span className="header-notif-dot" />}
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        title={group.name}
+        onBack={onBack}
+        backLabel="Back to group members"
+        backId="btn-back-to-members"
+        unreadCount={unreadCount}
+        onOpenNotifications={onOpenNotifications}
+      />
 
       <div className="expenses-page-content">
-        <div className="expenses-page-header-row">
-          <div className="expenses-title-group">
-            <div className="expenses-group-icon-badge" style={{ backgroundColor: group.iconBg }}>
-              <GroupIcon iconId={group.iconId} size={32} alt={group.name} />
-            </div>
-            <div>
-              <h1 className="expenses-main-heading">Expenses Breakdown</h1>
-              <p className="expenses-subheading">
-                Recent expenses, split shares and totals for <strong>{group.name}</strong>
-              </p>
-            </div>
+        <div className="page-intro">
+          <div className="page-intro-text">
+            <h1 className="page-title">Expenses Breakdown</h1>
+            <p className="page-subtitle">
+              Recent expenses, split shares and totals for <strong>{group.name}</strong>
+            </p>
           </div>
 
-          <div className="expenses-header-btn-group desktop-only">
-            <button className="btn-outline-pill" onClick={onViewSettlements}>
+          <div className="page-actions desktop-only">
+            <button className="btn btn-outline" onClick={onViewSettlements}>
               <CreditCard size={16} /> View Settlements
             </button>
-            <button className="btn-primary-add-expense" onClick={onAddExpense} id="btn-add-expense-header">
-              <img src={ribbonIcon} alt="Add" className="btn-ribbon-icon-inline" /> Add Expense
+            <button className="btn btn-primary" onClick={onAddExpense} id="btn-add-expense-header">
+              <img src={ribbonIcon} alt="" className="btn-ribbon-icon-inline" /> Add Expense
             </button>
           </div>
         </div>
@@ -130,27 +117,20 @@ export const ExpensesDetailView = ({
         <section className="expenses-summary-cards-grid">
           <div className="expenses-hero-spending-card">
             <div className="hero-card-left">
-              <span className="hero-stat-label">TOTAL SHARED SPENDING</span>
+              <span className="eyebrow eyebrow-accent">Total shared spending</span>
               <div className="hero-amount-display">
-                <span className="hero-currency-symbol">₱</span>
-                <span className="hero-amount-number">{peso(group.totalSpending).slice(1)}</span>
+                <span className="hero-amount-number">{peso(group.totalSpending)}</span>
               </div>
               <p className="hero-subtext">
                 Shared across <strong>{group.membersCount} members</strong>
               </p>
-            </div>
-
-            <div className="hero-card-actions">
-              <button className="btn-hero-add-expense" onClick={onAddExpense}>
-                <Plus size={16} /> Add Expense
-              </button>
             </div>
           </div>
 
           <div className="expenses-mini-stats-grid">
             <div className="stat-card expense-mini-card">
               <div className="mini-card-top">
-                <span className="stat-label">YOU PAID</span>
+                <span className="eyebrow">You paid</span>
                 <div className="mini-icon-circle paid-circle">
                   <TrendingUp size={16} color="#10B981" />
                 </div>
@@ -161,7 +141,7 @@ export const ExpensesDetailView = ({
 
             <div className="stat-card expense-mini-card">
               <div className="mini-card-top">
-                <span className="stat-label">YOUR SHARE</span>
+                <span className="eyebrow">Your share</span>
                 <div className="mini-icon-circle share-circle">
                   <Users size={16} color="#7E57C2" />
                 </div>
@@ -172,7 +152,7 @@ export const ExpensesDetailView = ({
 
             <div className="stat-card expense-mini-card">
               <div className="mini-card-top">
-                <span className="stat-label">YOUR GROUP BALANCE</span>
+                <span className="eyebrow">Your balance</span>
                 <div className={`mini-icon-circle ${group.balance >= 0 ? 'owed-circle' : 'owe-circle'}`}>
                   <DollarSign size={16} color={group.balance >= 0 ? '#7E57C2' : '#D32F2F'} />
                 </div>
@@ -191,23 +171,23 @@ export const ExpensesDetailView = ({
         <section className="expenses-list-full-section">
           <div className="expenses-section-toolbar">
             <div className="toolbar-left">
-              <h2 className="expenses-section-heading">
-                Group Expenses <span className="expenses-count-pill">{filteredExpenses.length}</span>
+              <h2 className="section-title section-title-with-count">
+                Group Expenses <span className="count-pill">{filteredExpenses.length}</span>
               </h2>
             </div>
 
-            <div className="expenses-filter-pills">
-              <button className={`filter-pill-btn ${activeFilter === 'all' ? 'active' : ''}`} onClick={() => setActiveFilter('all')}>
+            <div className="chip-group" role="group" aria-label="Filter expenses">
+              <button className={`chip ${activeFilter === 'all' ? 'active' : ''}`} onClick={() => setActiveFilter('all')}>
                 All ({expenses.length})
               </button>
               <button
-                className={`filter-pill-btn ${activeFilter === 'split-equal' ? 'active' : ''}`}
+                className={`chip ${activeFilter === 'split-equal' ? 'active' : ''}`}
                 onClick={() => setActiveFilter('split-equal')}
               >
                 Split Equally
               </button>
               <button
-                className={`filter-pill-btn ${activeFilter === 'itemized' ? 'active' : ''}`}
+                className={`chip ${activeFilter === 'itemized' ? 'active' : ''}`}
                 onClick={() => setActiveFilter('itemized')}
               >
                 Itemized
@@ -223,7 +203,7 @@ export const ExpensesDetailView = ({
                 </div>
                 <h3>{expensesQuery.loading ? 'Loading…' : expenses.length ? 'No expenses for this filter' : 'No expenses yet'}</h3>
                 <p>Click "Add Expense" to log bills, items, or meals for this group.</p>
-                <button className="btn-primary-action" onClick={onAddExpense}>
+                <button className="btn btn-primary" onClick={onAddExpense}>
                   <Plus size={16} /> Add Expense
                 </button>
               </div>
@@ -273,15 +253,14 @@ export const ExpensesDetailView = ({
 
                     {isExpanded && (
                       <div className="expense-expanded-breakdown animate-fade-in">
-                        <div className="expanded-divider" />
-                        <div className="expanded-header">
+                                                <div className="expanded-header">
                           <h4>Itemized Breakdown & Participants</h4>
                           <span className="split-summary-badge">
                             {isItemized ? 'Pay for what you had' : `${exp.splitLabel} ÷ ${exp.peopleCount}`}
                           </span>
                         </div>
 
-                        {!full && <p className="expenses-subheading">Loading…</p>}
+                        {!full && <p className="page-subtitle">Loading…</p>}
 
                         {full && full.items.length > 0 && (
                           <div className="expanded-items-list">
@@ -321,8 +300,8 @@ export const ExpensesDetailView = ({
                         )}
 
                         {full && (
-                          <div className="expenses-header-btn-group" style={{ marginTop: 14 }}>
-                            <button className="btn-outline-pill" onClick={() => handleDelete(exp)}>
+                          <div className="expanded-actions">
+                            <button className="btn btn-danger-outline btn-sm" onClick={() => handleDelete(exp)}>
                               <Trash2 size={16} /> Delete expense
                             </button>
                           </div>
@@ -336,12 +315,12 @@ export const ExpensesDetailView = ({
           </div>
         </section>
 
-        <div className="expenses-page-bottom-bar">
-          <button className="btn-bottom-back-members" onClick={onBack}>
+        <div className="page-bottom-actions page-bottom-actions-split">
+          <button className="btn btn-outline desktop-only" onClick={onBack}>
             <ArrowLeft size={16} /> Back to Group Members
           </button>
-          <button className="btn-bottom-add-expense" onClick={onAddExpense}>
-            <img src={ribbonIcon} alt="Add" className="btn-ribbon-icon-inline" /> Add New Expense
+          <button className="btn btn-primary btn-mobile-block" onClick={onAddExpense}>
+            <img src={ribbonIcon} alt="" className="btn-ribbon-icon-inline" /> Add New Expense
           </button>
         </div>
       </div>

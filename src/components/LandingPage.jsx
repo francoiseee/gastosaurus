@@ -12,12 +12,15 @@ export const LandingPage = ({ onStartSaving, onOpenAuth, onOpenDashboard, isLogg
     <div className="landing-page-container">
       {/* Top Header / Brand */}
       <header className="landing-header">
-        <div className="landing-brand">
-          <span className="brand-logo-text">Gastosaurus.</span>
+        <div className="navbar-brand landing-brand">
+          <span className="mascot-avatar-wrapper">
+            <img src={mascotImg} alt="" className="mascot-avatar-img" />
+          </span>
+          <span className="brand-name">Gastosaurus</span>
         </div>
         <button
           type="button"
-          className="landing-login-btn"
+          className="btn btn-outline"
           onClick={() => (isLoggedIn ? onOpenDashboard?.() : onOpenAuth?.('login'))}
         >
           {isLoggedIn ? 'Go to Dashboard' : 'Log In'}
@@ -29,15 +32,13 @@ export const LandingPage = ({ onStartSaving, onOpenAuth, onOpenDashboard, isLogg
         <div className="landing-hero-content">
           <div className="hero-text-col">
             <h1 className="hero-title">
-              Master Your<br />
-              Budget,<br />
-              Effortlessly.
+              Master Your Budget, <span className="hero-title-accent">Effortlessly.</span>
             </h1>
             <p className="hero-subtitle">
               Track expenses, save smarter, and take control of your finances.
             </p>
             <button 
-              className="btn-start-saving"
+              className="btn btn-primary btn-lg btn-start-saving"
               onClick={() => onStartSaving ? onStartSaving('signup') : null}
               id="start-saving-btn"
             >
@@ -49,7 +50,7 @@ export const LandingPage = ({ onStartSaving, onOpenAuth, onOpenDashboard, isLogg
             <div className="mascot-badge-circle animate-float">
               <img 
                 src={mascotImg} 
-                alt="Gastosaurus Mascot hugging piggy bank" 
+                alt="Gastosaurus mascot hugging a piggy bank" 
                 className="hero-mascot-img" 
               />
             </div>
@@ -81,7 +82,7 @@ export const LandingPage = ({ onStartSaving, onOpenAuth, onOpenDashboard, isLogg
             <div className="feature-strip-text">
               <h2 className="feature-strip-title">Bill Reminders</h2>
               <p className="feature-strip-desc">
-                Bill expenses, determinborn and aim of your finances.
+                Gentle nudges before a bill is due, so nobody has to chase the barkada for payments.
               </p>
             </div>
           </div>

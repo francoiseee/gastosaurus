@@ -15,6 +15,7 @@ import PersonalBalanceModal from './components/PersonalBalanceModal';
 import GroupDetailModal from './components/GroupDetailModal';
 import CreateGroupModal from './components/CreateGroupModal';
 import AuthModal from './components/AuthModal';
+import ChooseDinoModal from './components/ChooseDinoModal';
 import { supabase } from './lib/supabase';
 import { profileApi, groupsApi, meApi, invitesApi, settlementsApi } from './lib/api';
 import { useAsync } from './hooks/useAsync';
@@ -100,6 +101,8 @@ function App() {
   const [isCreateGroupOpen, setIsCreateGroupOpen] = useState(false);
   const [isPersonalBalanceOpen, setIsPersonalBalanceOpen] = useState(false);
   const [isGroupDetailOpen, setIsGroupDetailOpen] = useState(false);
+  const [isChooseDinoOpen, setIsChooseDinoOpen] = useState(false);
+  const [isDinoOnboarding, setIsDinoOnboarding] = useState(false);
   const [expenseDraft, setExpenseDraft] = useState(null); // { groupId, members, items, description, paidBy }
   const [paymentItems, setPaymentItems] = useState([]); // suggested payments chosen on Settlements
 
@@ -177,9 +180,19 @@ function App() {
     setIsAuthOpen(true);
   };
 
-  const handleAuthSuccess = () => {
+  const handleAuthSuccess = (options = {}) => {
     setIsAuthOpen(false);
+    if (options?.isSignUp) {
+      setIsDinoOnboarding(true);
+      setIsChooseDinoOpen(true);
+    }
     go('dashboard');
+  };
+
+  const handleDinoSaved = (updatedUser) => {
+    setAuthUser((prev) => ({ ...prev, ...updatedUser }));
+    setIsChooseDinoOpen(false);
+    refresh();
   };
 
   const handleLogout = async () => {
@@ -296,7 +309,12 @@ function App() {
           notifications={inbox.notifications}
           unreadCount={inbox.unreadCount}
           onOpenNotifs={openNotifications}
+          authUser={authUser}
           userName={authUser?.name}
+          onOpenProfileModal={() => {
+            setIsDinoOnboarding(false);
+            setIsChooseDinoOpen(true);
+          }}
           onLogout={handleLogout}
         />
       )}
@@ -313,6 +331,7 @@ function App() {
 
         {currentView === 'dashboard' && (
           <Dashboard
+            authUser={authUser}
             summary={summaryQuery.data}
             groups={groups}
             isLoading={groupsQuery.loading && !groupsQuery.data}
@@ -321,6 +340,10 @@ function App() {
             onViewGroupClick={openGroup}
             onViewAllGroups={() => go('groups')}
             onCreateGroupClick={() => setIsCreateGroupOpen(true)}
+            onOpenProfileModal={() => {
+              setIsDinoOnboarding(false);
+              setIsChooseDinoOpen(true);
+            }}
           />
         )}
 
@@ -365,6 +388,7 @@ function App() {
             onContinue={backToGroup}
             onChanged={refresh}
             showToast={showToast}
+            {...bell}
           />
         )}
 
@@ -480,6 +504,14 @@ function App() {
           setIsGroupDetailOpen(false);
           startExpense(selectedGroupId);
         }}
+      />
+      <ChooseDinoModal
+        isOpen={isChooseDinoOpen}
+        user={authUser}
+        isInitialOnboarding={isDinoOnboarding}
+        onClose={() => setIsChooseDinoOpen(false)}
+        onDinoSaved={handleDinoSaved}
+        showToast={showToast}
       />
     </div>
   );

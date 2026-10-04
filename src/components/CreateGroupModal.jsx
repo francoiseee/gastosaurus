@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import GroupIcon from './GroupIcon';
 import { GROUP_ICONS, PICKER_ICONS, ICON_SETS, DINO_ICON_ID, DEFAULT_ICON_ID } from '../data/groupIcons';
-import { Plus, Check, Search, ChevronDown } from './CustomIcons';
+import { Plus, Check, Search, ChevronDown, X } from './CustomIcons';
 import { groupsApi } from '../lib/api';
 
 const COLOR_THEMES = [
@@ -150,8 +150,8 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated, currentUserN
               </span>
             </div>
           </div>
-          <button className="modal-close-btn" onClick={onClose} aria-label="Close modal">
-            ✕
+          <button type="button" className="modal-close-btn" onClick={onClose} aria-label="Close">
+            <X size={16} />
           </button>
         </div>
 
@@ -276,8 +276,8 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated, currentUserN
                   {members.map((mem, idx) => (
                     <span key={mem} className="member-tag-chip">
                       {mem}
-                      <button type="button" className="remove-chip-btn" onClick={() => handleRemoveMember(idx)}>
-                        ✕
+                      <button type="button" className="remove-chip-btn" onClick={() => handleRemoveMember(idx)} aria-label={`Remove ${mem}`}>
+                        <X size={12} strokeWidth={2.6} />
                       </button>
                     </span>
                   ))}
@@ -298,7 +298,7 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated, currentUserN
                   />
                   <button
                     type="button"
-                    className="btn-add-member"
+                    className="btn btn-soft"
                     onClick={handleAddMember}
                   >
                     <Plus size={16} /> Add
@@ -308,11 +308,11 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated, currentUserN
 
               {/* Live Preview Card */}
               <div className="group-live-preview-box">
-                <span className="preview-label">Live Card Preview:</span>
+                <span className="eyebrow preview-label">Live card preview</span>
                 <div className="group-card preview-card">
                   <div className="group-card-top">
                     <div
-                      className="group-icon-box"
+                      className="group-icon-circle"
                       style={{ backgroundColor: selectedTheme.bg }}
                     >
                       <GroupIcon iconId={selectedIconId} size={42} />
@@ -325,8 +325,8 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated, currentUserN
                     </div>
                   </div>
                   <div className="group-card-footer">
-                    <span className="balance-label">Your Balance</span>
-                    <span className="balance-value positive">₱0.00</span>
+                    <span className="balance-label">Your balance</span>
+                    <span className="balance-value">₱0.00</span>
                   </div>
                 </div>
               </div>
@@ -340,16 +340,16 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated, currentUserN
                     Select Group Icon <span className="selected-icon-name">({selectedIconMeta.name})</span>
                   </label>
                   <p className="icon-picker-sub">
-                    {PICKER_ICONS.length} circular icons extracted from 3 uploaded icon sets
+                    Pick one that fits your group.
                   </p>
                 </div>
               </div>
 
               {/* Set Tabs */}
-              <div className="icon-sets-tab-bar">
+              <div className="chip-group icon-sets-tab-bar">
                 <button
                   type="button"
-                  className={`icon-tab-btn ${activeSetTab === 'all' ? 'active' : ''}`}
+                  className={`chip ${activeSetTab === 'all' ? 'active' : ''}`}
                   onClick={() => setActiveSetTab('all')}
                 >
                   All ({PICKER_ICONS.length})
@@ -358,7 +358,7 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated, currentUserN
                   <button
                     key={s.id}
                     type="button"
-                    className={`icon-tab-btn ${activeSetTab === s.id ? 'active' : ''}`}
+                    className={`chip ${activeSetTab === s.id ? 'active' : ''}`}
                     onClick={() => setActiveSetTab(s.id)}
                   >
                     {s.label}
@@ -368,10 +368,11 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated, currentUserN
 
               {/* Search Bar */}
               <div className="icon-search-bar">
-                <Search size={15} color="#8E94A0" className="icon-search-svg" />
+                <Search size={15} className="icon-search-svg" aria-hidden="true" />
                 <input
                   type="text"
-                  placeholder="Search icons (e.g. coffee, luggage, house, bike, pet)..."
+                  placeholder="Search icons (coffee, luggage, house…)"
+                  aria-label="Search icons"
                   value={iconSearch}
                   onChange={(e) => setIconSearch(e.target.value)}
                   className="icon-search-input"
@@ -379,10 +380,11 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated, currentUserN
                 {iconSearch && (
                   <button
                     type="button"
-                    className="clear-search-btn"
+                    className="icon-btn icon-btn-sm icon-btn-ghost clear-search-btn"
                     onClick={() => setIconSearch('')}
+                    aria-label="Clear icon search"
                   >
-                    ✕
+                    <X size={14} />
                   </button>
                 )}
               </div>
@@ -424,7 +426,7 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated, currentUserN
                     <p>No icons matching "{iconSearch}"</p>
                     <button
                       type="button"
-                      className="btn-reset-filter"
+                      className="btn btn-text"
                       onClick={() => {
                         setIconSearch('');
                         setActiveSetTab('all');
@@ -439,19 +441,19 @@ export const CreateGroupModal = ({ isOpen, onClose, onGroupCreated, currentUserN
           </div>
 
           {errorMsg && (
-            <div className="form-error-banner animate-fade-in">
+            <div className="form-error-banner animate-fade-in" role="alert">
               <span>{errorMsg}</span>
             </div>
           )}
 
           {/* Modal Actions */}
           <div className="modal-actions modal-footer-actions">
-            <button type="button" className="btn-secondary" onClick={onClose}>
+            <button type="button" className="btn btn-muted" onClick={onClose}>
               Cancel
             </button>
             <button
               type="submit"
-              className="btn-primary-action"
+              className="btn btn-primary"
               disabled={!name.trim() || isSaving}
             >
               <Plus size={18} /> {isSaving ? 'Creating…' : 'Create Group'}

@@ -1,142 +1,99 @@
-import { useState } from 'react';
 import mascotImg from '../assets/mascot.png';
-import { Bell } from './CustomIcons';
-import { timeAgo } from '../lib/format';
+import { Bell, LogOut, Sparkles } from './CustomIcons';
+import Avatar from './Avatar';
 
-export const Navbar = ({ 
-  currentTab, 
-  onSelectTab, 
-  onNavigateHome, 
-  notifications = [],
+const TABS = [
+  { id: 'dashboard', label: 'Dashboard' },
+  { id: 'groups', label: 'Groups' },
+  { id: 'settlements', label: 'Settlements' },
+];
+
+/** The pill switcher between the three main screens (top bar on desktop, own row on mobile). */
+const TabSwitcher = ({ currentTab, onSelectTab, className = '', label }) => (
+  <nav className={`nav-pill-wrapper ${className}`} aria-label={label}>
+    <div className="nav-pill-track">
+      {TABS.map((tab) => {
+        const isActive = currentTab === tab.id;
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            className={`nav-pill-btn ${isActive ? 'active' : ''}`}
+            onClick={() => onSelectTab(tab.id)}
+            aria-current={isActive ? 'page' : undefined}
+          >
+            {tab.label}
+          </button>
+        );
+      })}
+    </div>
+  </nav>
+);
+
+export const Navbar = ({
+  currentTab,
+  onSelectTab,
+  onNavigateHome,
   unreadCount = 0,
   onOpenNotifs,
+  authUser,
   userName,
-  onLogout
+  onOpenProfileModal,
+  onLogout,
 }) => {
-  const [isNotifOpen, setIsNotifOpen] = useState(false);
-
-  const tabs = [
-    { id: 'dashboard', label: 'Dashboard' },
-    { id: 'groups', label: 'Groups' },
-    { id: 'settlements', label: 'Settlements' }
-  ];
+  const currentPerson = authUser || (userName ? { name: userName } : null);
 
   return (
     <header className="gastosaurus-navbar-container">
       <div className="navbar-content">
-        {/* Brand / Logo */}
-        <div 
-          className="navbar-brand" 
-          onClick={onNavigateHome}
-          role="button"
-          tabIndex={0}
-          title="Return to Welcome / Landing Page"
-        >
-          <div className="mascot-avatar-wrapper">
-            <img src={mascotImg} alt="Gastosaurus Mascot" className="mascot-avatar-img" />
-          </div>
+        <button type="button" className="navbar-brand" onClick={onNavigateHome} title="Back to the welcome page">
+          <span className="mascot-avatar-wrapper">
+            <img src={mascotImg} alt="" className="mascot-avatar-img" />
+          </span>
           <span className="brand-name">Gastosaurus</span>
-        </div>
+        </button>
 
-        {/* Center Segmented Pill Switcher (Web & Desktop) */}
-        <nav className="nav-pill-wrapper desktop-only" aria-label="Main Navigation">
-          <div className="nav-pill-track">
-            {tabs.map((tab) => {
-              const isActive = currentTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  className={`nav-pill-btn ${isActive ? 'active' : ''}`}
-                  onClick={() => onSelectTab(tab.id)}
-                  aria-current={isActive ? 'page' : undefined}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-        </nav>
+        <TabSwitcher currentTab={currentTab} onSelectTab={onSelectTab} className="desktop-only" label="Main navigation" />
 
-        {/* Right Actions: Notifications & Switch View */}
         <div className="navbar-actions">
-          {onLogout && (
+          {currentPerson && onOpenProfileModal && (
             <button
               type="button"
-              className="navbar-logout-btn"
-              onClick={onLogout}
-              title={userName ? `Logged in as ${userName}` : 'Log out'}
+              className="navbar-profile-pill"
+              onClick={onOpenProfileModal}
+              title={`Logged in as ${currentPerson.name} · Customize your Dino avatar`}
+              aria-label="Customize your Dino avatar"
             >
-              Log out
+              <Avatar person={currentPerson} className="navbar-dino-avatar" size={30} />
+              <span className="navbar-profile-name">{currentPerson.name}</span>
+              <span className="navbar-profile-badge">
+                <Sparkles size={11} />
+              </span>
             </button>
           )}
-          <div className="notif-dropdown-wrapper">
-            <button 
-              className={`notif-btn ${unreadCount > 0 ? 'has-unread' : ''}`}
-              onClick={() => setIsNotifOpen(!isNotifOpen)}
-              aria-label="View notifications"
-              title="Notifications"
-            >
-              <Bell size={20} color="#21252D" />
-              {unreadCount > 0 && <span className="notif-dot" />}
+
+          {onLogout && (
+            <button type="button" className="btn btn-outline navbar-logout-btn" onClick={onLogout} aria-label="Log out" title="Log out">
+              <LogOut size={16} className="navbar-logout-icon" />
+              <span className="navbar-logout-label">Log out</span>
             </button>
+          )}
 
-            {/* Notification Popover */}
-            {isNotifOpen && (
-              <div className="notif-popover animate-fade-in">
-                <div className="notif-header">
-                  <h4>Notifications</h4>
-                  <span className="badge-pill">{unreadCount} new</span>
-                </div>
-                <div className="notif-list">
-                  {notifications.length === 0 && (
-                    <div className="notif-item read">
-                      <div className="notif-content">
-                        <p className="notif-title">You're all caught up. 🦖</p>
-                      </div>
-                    </div>
-                  )}
-                  {notifications.slice(0, 6).map((notif) => (
-                    <div key={notif.id} className={`notif-item ${notif.read ? 'read' : 'unread'}`}>
-                      <div className="notif-content">
-                        <p className="notif-title">{notif.title}</p>
-                        <span className="notif-time">{timeAgo(notif.createdAt)}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  className="notif-footer-btn"
-                  onClick={() => {
-                    setIsNotifOpen(false);
-                    onOpenNotifs?.();
-                  }}
-                >
-                  See all notifications
-                </button>
-              </div>
-            )}
-          </div>
+          <button
+            type="button"
+            className="icon-btn"
+            onClick={() => onOpenNotifs?.()}
+            aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications'}
+            title="Notifications"
+            id="navbar-notif-btn"
+          >
+            <Bell size={20} />
+            {unreadCount > 0 && <span className="icon-btn-dot" />}
+          </button>
         </div>
       </div>
 
-      {/* Mobile Segmented Switcher (Visible on Mobile) */}
-      <div className="mobile-pill-container mobile-only">
-        <div className="nav-pill-track">
-          {tabs.map((tab) => {
-            const isActive = currentTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                className={`nav-pill-btn ${isActive ? 'active' : ''}`}
-                onClick={() => onSelectTab(tab.id)}
-                aria-current={isActive ? 'page' : undefined}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <TabSwitcher currentTab={currentTab} onSelectTab={onSelectTab} className="mobile-pill-container mobile-only" label="Main navigation" />
     </header>
   );
 };
