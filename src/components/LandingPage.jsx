@@ -39,7 +39,7 @@ export const LandingPage = ({ onStartSaving, onOpenAuth, onOpenDashboard, isLogg
             </p>
             <button 
               className="btn btn-primary btn-lg btn-start-saving"
-              onClick={() => onStartSaving ? onStartSaving('signup') : null}
+              onClick={() => onStartSaving?.()}
               id="start-saving-btn"
             >
               Start Saving

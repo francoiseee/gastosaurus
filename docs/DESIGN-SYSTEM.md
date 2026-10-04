@@ -37,6 +37,7 @@ Use only these three values in media queries.
 - **Labels** — `.eyebrow` for small uppercase labels above numbers; `.count-pill` next to section titles.
 - **Forms** — `.form-group`, `.form-label`, `.form-input`, `.form-select` (+ `.custom-select-wrapper`). All inputs are 44px with the same border/focus ring. `.input-row` for an input with a button.
 - **Modals** — `.modal-backdrop` > `.modal-card` > `.modal-header` (`.modal-title-box`, `.modal-close-btn`) … `.modal-actions`. Add a modifier class for width (e.g. `create-group-modal-card`).
+- **Icons** — Lucide icons re-exported from `components/CustomIcons.jsx`. Money is always shown with the peso sign from `lib/format.js` (`peso()`), never a dollar icon; use `Wallet` for money-related icons.
 - **Feedback** — `.banner .banner-success`, `.form-error-banner`, `.app-toast`, `.empty-state`.
 
 ## Rules of thumb
@@ -46,3 +47,4 @@ Use only these three values in media queries.
 3. Cards are `--radius-lg`, `1px solid var(--border-card)`, `var(--shadow-card)`.
 4. Grids use `minmax(0, 1fr)` so long names can't push a layout wider than the screen.
 5. Check new screens at 1440, 820, 390 and 360px wide.
+6. Keep images small: icons ≤128px, dino avatars ≤256px, illustrations ≤640px, photos/patterns as WebP.

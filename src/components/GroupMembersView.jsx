@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, CreditCard, UserPlus, LogOut, Mail, X, Calendar, DollarSign, Settings, ReceiptText } from './CustomIcons';
+import { ArrowLeft, CreditCard, UserPlus, LogOut, Mail, X, Calendar, Wallet, Settings, ReceiptText } from './CustomIcons';
 import PageHeader from './PageHeader';
 import LeaveGroupModal from './LeaveGroupModal';
 import Avatar from './Avatar';
@@ -273,7 +273,7 @@ export const GroupMembersView = ({
                   <span className="profile-email">{member.email || 'Guest — no account yet'}</span>
                   <div className="profile-meta-row">
                     <span className="meta-spent" title="Paid on behalf of the group">
-                      <DollarSign size={13} className="meta-svg" /> {peso(member.spentAmount)}
+                      <Wallet size={13} className="meta-svg" /> {peso(member.spentAmount)}
                     </span>
                     <span className="meta-date">
                       <Calendar size={13} className="meta-svg" /> {formatDate(member.joinedAt)}

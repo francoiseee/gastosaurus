@@ -1,4 +1,3 @@
-import Avatar from './Avatar';
 import GroupCard from './GroupCard';
 import { pesoParts, peso } from '../lib/format';
 import netBalanceMascot from '../assets/net-balance-mascot.png';
@@ -19,7 +18,6 @@ export const Dashboard = ({
   onViewGroupClick,
   onViewAllGroups,
   onCreateGroupClick,
-  onOpenProfileModal,
 }) => {
   const net = pesoParts(summary?.netBalance ?? 0);
   const youOwe = summary?.youOwe ?? 0;
@@ -39,21 +37,6 @@ export const Dashboard = ({
             {authUser?.name ? `Hey ${authUser.name}! Here's your financial snapshot for today.` : "Here's your financial snapshot for today."}
           </p>
         </div>
-        {authUser && onOpenProfileModal && (
-          <button
-            type="button"
-            className="dashboard-dino-badge-btn"
-            onClick={onOpenProfileModal}
-            title="Click to customize your Dino avatar"
-            aria-label="Customize Dino avatar"
-          >
-            <Avatar person={authUser} size={40} className="dashboard-header-avatar" />
-            <div className="dashboard-avatar-text">
-              <span className="dashboard-avatar-dino-name">Your Dino</span>
-              <span className="dashboard-avatar-change-hint">Customize ✨</span>
-            </div>
-          </button>
-        )}
       </section>
 
       {/* Top Financial Stats Cards Grid */}

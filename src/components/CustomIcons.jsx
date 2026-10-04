@@ -19,15 +19,12 @@ import {
   Sparkles,
   ShoppingBag,
   Coffee,
-  DollarSign,
   Mail,
   Lock,
   Eye,
   EyeOff,
   User,
-  LogIn,
   UserPlus,
-  ShieldCheck,
   Search,
   CreditCard,
   LogOut,
@@ -41,7 +38,6 @@ import {
   Copy,
   ClipboardCheck,
   Delete,
-  Wine,
   Utensils,
   GripVertical,
   Inbox,
@@ -49,26 +45,6 @@ import {
   Settings,
   RefreshCw
 } from 'lucide-react';
-
-// Custom Bowling Ball Icon matching screenshot
-export const BowlingIcon = ({ size = 20, color = "currentColor", className = "" }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke={color}
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <circle cx="12" cy="12" r="9" />
-    <circle cx="10" cy="9" r="1.2" fill={color} />
-    <circle cx="14" cy="9" r="1.2" fill={color} />
-    <circle cx="12" cy="13.5" r="1.2" fill={color} />
-  </svg>
-);
 
 // Receipt Icon for Itemized Ambagan
 export const ReceiptIcon = ({ size = 22, color = "#1E2026", className = "" }) => (
@@ -92,7 +68,6 @@ export {
   ArrowDown,
   ArrowRight,
   ArrowLeft,
-  Handshake,
   Building2,
   Plane,
   UtensilsCrossed,
@@ -104,15 +79,12 @@ export {
   Sparkles,
   ShoppingBag,
   Coffee,
-  DollarSign,
   Mail,
   Lock,
   Eye,
   EyeOff,
   User,
-  LogIn,
   UserPlus,
-  ShieldCheck,
   Search,
   CreditCard,
   LogOut,
@@ -127,7 +99,6 @@ export {
   Copy,
   ClipboardCheck,
   Delete,
-  Wine,
   Utensils,
   GripVertical,
   Inbox,

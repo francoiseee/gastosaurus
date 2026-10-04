@@ -86,13 +86,10 @@ If an API call returns 500, open **Vercel → Project → Logs** (or the deploym
 - Site URL: `https://<your-app>.vercel.app`
 - Redirect URLs: keep `http://localhost:5173/**`, add `https://<your-app>.vercel.app/**`
 
-Without this, confirmation, password-reset and Google links send people back to localhost.
+Without this, confirmation and password-reset links send people back to localhost.
 
 **Authentication → Sign In / Providers → Email:** for class demos, turn **Confirm email** off
 (the built-in mailer only reaches your own team and is rate-limited), or set up custom SMTP.
-
-**Google sign-in (optional):** Google Cloud Console → your OAuth client → add `https://<your-app>.vercel.app` to
-Authorized JavaScript origins. The redirect URI stays `https://oieupqfsmnbcoatoicef.supabase.co/auth/v1/callback`.
 
 ## Step 5 — Smoke test
 

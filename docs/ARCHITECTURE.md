@@ -16,7 +16,7 @@ flowchart LR
   end
 
   subgraph Supabase["Supabase project: gastosaurus"]
-    AUTH["Supabase Auth<br/>email + password, Google,<br/>password-reset emails"]
+    AUTH["Supabase Auth<br/>email + password,<br/>password-reset emails"]
     DB[("Postgres<br/>auth.users + public.*<br/>Row Level Security on")]
   end
 
@@ -34,12 +34,12 @@ There are three parts:
 
 | Part | What it does | Where |
 |---|---|---|
-| **React app** | All screens. Uses `supabase-js` *only* for login, sign-up, Google, password reset, and keeping the session fresh. Every other request goes to our API. | `src/` |
-| **Supabase Auth** | Stores accounts and passwords, signs access tokens, sends confirmation and reset emails, and handles Google OAuth. We never handle passwords ourselves. | Supabase dashboard → Authentication |
+| **React app** | All screens. Uses `supabase-js` *only* for login, sign-up, password reset, and keeping the session fresh. Every other request goes to our API. | `src/` |
+| **Supabase Auth** | Stores accounts and passwords, signs access tokens, and sends confirmation and reset emails. We never handle passwords ourselves. | Supabase dashboard → Authentication |
 | **Express API** | All app logic: groups, expenses, splitting math, balances, settlements, notifications. It checks the user's token, then reads and writes Postgres with plain SQL (`pg`). | `server/` |
 | **Postgres (Supabase)** | One database. `auth.users` is owned by Supabase. Our tables live in `public` and are created by migrations in `supabase/migrations/`. | Supabase dashboard → Database |
 
-**Why this split?** Supabase Auth gives us secure login, Google sign-in and reset emails for free. Writing those well is hard and easy to get wrong. The money logic (who owes whom) stays in a normal Express + SQL backend, where it's easy to test, explain and grade.
+**Why this split?** Supabase Auth gives us secure login and reset emails for free. Writing those well is hard and easy to get wrong. The money logic (who owes whom) stays in a normal Express + SQL backend, where it's easy to test, explain and grade.
 
 ---
 
@@ -156,7 +156,6 @@ sequenceDiagram
 
 - **Who is the user?** The API trusts only the verified token. `req.user.id` comes from the token's `sub` and equals `auth.users.id` and `profiles.id`. Never accept a user id from the request body.
 - **Keep me logged in.** Checked: the session goes in localStorage and survives restarts. Unchecked: it goes in sessionStorage and ends when the tab closes. `supabase-js` refreshes the token automatically.
-- **Google.** `signInWithOAuth({ provider: 'google' })` sends the user to Google and back. The same trigger creates their profile, using Google's `full_name`.
 - **Forgot password.** `resetPasswordForEmail()` sends a link. When the user returns, Supabase fires `PASSWORD_RECOVERY`, and the app opens the "Set a new password" screen.
 - **Token formats.** New Supabase keys are asymmetric (ES256) and verified locally with JWKS. Legacy HS256 tokens are checked by calling `GET /auth/v1/user`, as Supabase recommends. `verifySupabaseToken.js` handles both.
 
@@ -168,7 +167,7 @@ sequenceDiagram
 | GET | `/api/me` | ✔ | – | `{ user }` (creates the profile if it's missing) |
 | PATCH | `/api/me` | ✔ | `{ name?, avatarEmoji?, monthlyBudget? }` | `{ user }` |
 
-Sign up, log in, log out, Google and reset are **not** API endpoints. They're `supabase.auth.*` calls in the browser.
+Sign up, log in, log out and reset are **not** API endpoints. They're `supabase.auth.*` calls in the browser.
 
 ---
 
@@ -369,7 +368,7 @@ Every screen uses these through `src/lib/api.js`. The old mock data has been rem
 
 | Phase | Scope | Status |
 |---|---|---|
-| **1. Accounts** | Supabase Auth, `profiles` + trigger + RLS, `/api/me`, login/sign-up/Google/forgot/new-password UI | ✅ |
+| **1. Accounts** | Supabase Auth, `profiles` + trigger + RLS, `/api/me`, login/sign-up/forgot/new-password UI | ✅ |
 | **2. Groups** | Groups, guest members, email invites (claim a guest spot), join links, leave/remove rules, admin hand-over | ✅ |
 | **3. Expenses** | Equal / itemized (with charges and discounts) / custom splitting in centavos, shares-equal-total trigger | ✅ |
 | **4. Balances & settlements** | `group_balances` view, Settle Up suggestions, payments with confirmation, dashboard summary, cross-group settle-up | ✅ |
@@ -389,7 +388,7 @@ Every screen uses these through `src/lib/api.js`. The old mock data has been rem
 
 | Where | Setting | Why |
 |---|---|---|
-| Authentication → URL Configuration | **Site URL** = `http://localhost:5173`. Add `http://localhost:5173/**` to Redirect URLs (later, your Vercel URL too). | Confirmation, reset and Google links come back to the app. |
+| Authentication → URL Configuration | **Site URL** = `http://localhost:5173`. Add `http://localhost:5173/**` to Redirect URLs (later, your Vercel URL too). | Confirmation and reset links come back to the app. |
 | Authentication → Providers → Email | For class demos, turn **Confirm email** off, *or* set up custom SMTP (Authentication → Emails). | Supabase's built-in email only delivers to your own team's addresses and is heavily rate-limited, so groupmates won't get confirmation emails without SMTP. |
 | Authentication → Providers → Google | Enable it and paste the Client ID and Secret from Google Cloud Console (OAuth client, type "Web"). Authorized redirect URI: `https://oieupqfsmnbcoatoicef.supabase.co/auth/v1/callback`. | Makes "Continue with Google" work. Until then it shows a friendly "not switched on yet" message. |
 

@@ -1,26 +1,28 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import Navbar from './components/Navbar';
 import LandingPage from './components/LandingPage';
-import Dashboard from './components/Dashboard';
-import GroupsView from './components/GroupsView';
-import GroupMembersView from './components/GroupMembersView';
-import ExpensesDetailView from './components/ExpensesDetailView';
-import SettlementsView from './components/SettlementsView';
-import InviteMemberView from './components/InviteMemberView';
-import PaymentView from './components/PaymentView';
-import AddExpenseCalculatorView from './components/AddExpenseCalculatorView';
-import ItemizedAmbaganView from './components/ItemizedAmbaganView';
-import NotificationsView from './components/NotificationsView';
-import PersonalBalanceModal from './components/PersonalBalanceModal';
-import GroupDetailModal from './components/GroupDetailModal';
-import CreateGroupModal from './components/CreateGroupModal';
 import AuthModal from './components/AuthModal';
-import ChooseDinoModal from './components/ChooseDinoModal';
 import { supabase } from './lib/supabase';
 import { profileApi, groupsApi, meApi, invitesApi, settlementsApi } from './lib/api';
 import { useAsync } from './hooks/useAsync';
 import { useNotifications } from './hooks/useNotifications';
 import './App.css';
+
+// Everything behind the login loads on demand, so the landing page stays light.
+const Dashboard = lazy(() => import('./components/Dashboard'));
+const GroupsView = lazy(() => import('./components/GroupsView'));
+const GroupMembersView = lazy(() => import('./components/GroupMembersView'));
+const ExpensesDetailView = lazy(() => import('./components/ExpensesDetailView'));
+const SettlementsView = lazy(() => import('./components/SettlementsView'));
+const InviteMemberView = lazy(() => import('./components/InviteMemberView'));
+const PaymentView = lazy(() => import('./components/PaymentView'));
+const AddExpenseCalculatorView = lazy(() => import('./components/AddExpenseCalculatorView'));
+const ItemizedAmbaganView = lazy(() => import('./components/ItemizedAmbaganView'));
+const NotificationsView = lazy(() => import('./components/NotificationsView'));
+const PersonalBalanceModal = lazy(() => import('./components/PersonalBalanceModal'));
+const GroupDetailModal = lazy(() => import('./components/GroupDetailModal'));
+const CreateGroupModal = lazy(() => import('./components/CreateGroupModal'));
+const ChooseDinoModal = lazy(() => import('./components/ChooseDinoModal'));
 
 // Screens that draw their own header (everything else gets the Navbar).
 const FULL_SCREEN_VIEWS = new Set([
@@ -63,7 +65,7 @@ function App() {
   // Supabase keeps the session; our API (/api/me) returns the profile.
   const [authUser, setAuthUser] = useState(null);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [authMode, setAuthMode] = useState('signup'); // 'login' | 'signup' | 'update-password'
+  const [authMode, setAuthMode] = useState('login'); // 'login' | 'signup' | 'update-password'
 
   // ─── Navigation ──────────────────────────────────────────────────────────
   const [requestedView, setRequestedView] = useState('landing');
@@ -106,7 +108,7 @@ function App() {
   const [expenseDraft, setExpenseDraft] = useState(null); // { groupId, members, items, description, paidBy }
   const [paymentItems, setPaymentItems] = useState([]); // suggested payments chosen on Settlements
 
-  // Supabase Auth: restores "Keep me logged in" sessions, finishes Google /
+  // Supabase Auth: restores "Keep me logged in" sessions, finishes
   // email-link sign-ins, and reacts to log out.
   useEffect(() => {
     if (!supabase) return undefined;
@@ -306,7 +308,6 @@ function App() {
           currentTab={currentView}
           onSelectTab={go}
           onNavigateHome={() => go('landing')}
-          notifications={inbox.notifications}
           unreadCount={inbox.unreadCount}
           onOpenNotifs={openNotifications}
           authUser={authUser}
@@ -320,143 +321,140 @@ function App() {
       )}
 
       <main className="main-content-area">
-        {currentView === 'landing' && (
-          <LandingPage
-            onStartSaving={() => openAuth('signup')}
-            onOpenAuth={openAuth}
-            onOpenDashboard={() => openAuth('login')}
-            isLoggedIn={!!authUser}
-          />
-        )}
+        <Suspense fallback={<div className="page-loading" aria-busy="true" />}>
+          {currentView === 'landing' && (
+            <LandingPage
+              onStartSaving={() => openAuth('login')}
+              onOpenAuth={openAuth}
+              onOpenDashboard={() => openAuth('login')}
+              isLoggedIn={!!authUser}
+            />
+          )}
 
-        {currentView === 'dashboard' && (
-          <Dashboard
-            authUser={authUser}
-            summary={summaryQuery.data}
-            groups={groups}
-            isLoading={groupsQuery.loading && !groupsQuery.data}
-            onSettleUpClick={() => go('settlements')}
-            onPersonalBalanceClick={() => setIsPersonalBalanceOpen(true)}
-            onViewGroupClick={openGroup}
-            onViewAllGroups={() => go('groups')}
-            onCreateGroupClick={() => setIsCreateGroupOpen(true)}
-            onOpenProfileModal={() => {
-              setIsDinoOnboarding(false);
-              setIsChooseDinoOpen(true);
-            }}
-          />
-        )}
+          {currentView === 'dashboard' && (
+            <Dashboard
+              authUser={authUser}
+              summary={summaryQuery.data}
+              groups={groups}
+              isLoading={groupsQuery.loading && !groupsQuery.data}
+              onSettleUpClick={() => go('settlements')}
+              onPersonalBalanceClick={() => setIsPersonalBalanceOpen(true)}
+              onViewGroupClick={openGroup}
+              onViewAllGroups={() => go('groups')}
+              onCreateGroupClick={() => setIsCreateGroupOpen(true)}
+            />
+          )}
 
-        {currentView === 'groups' && (
-          <GroupsView groups={groups} onViewGroupClick={openGroup} onAddGroup={() => setIsCreateGroupOpen(true)} />
-        )}
+          {currentView === 'groups' && (
+            <GroupsView groups={groups} onViewGroupClick={openGroup} onAddGroup={() => setIsCreateGroupOpen(true)} />
+          )}
 
-        {currentView === 'group-members' && selectedGroupId && (
-          <GroupMembersView
-            groupId={selectedGroupId}
-            refreshKey={refreshKey}
-            onBack={() => go('groups')}
-            onViewSettlements={() => go('settlements')}
-            onViewExpensesDetail={() => go('expenses-detail')}
-            onAddExpense={() => startExpense(selectedGroupId)}
-            onNavigateInviteMember={() => go('invite-member')}
-            onOpenDetails={() => setIsGroupDetailOpen(true)}
-            onLeft={handleLeftGroup}
-            onChanged={refresh}
-            showToast={showToast}
-            {...bell}
-          />
-        )}
+          {currentView === 'group-members' && selectedGroupId && (
+            <GroupMembersView
+              groupId={selectedGroupId}
+              refreshKey={refreshKey}
+              onBack={() => go('groups')}
+              onViewSettlements={() => go('settlements')}
+              onViewExpensesDetail={() => go('expenses-detail')}
+              onAddExpense={() => startExpense(selectedGroupId)}
+              onNavigateInviteMember={() => go('invite-member')}
+              onOpenDetails={() => setIsGroupDetailOpen(true)}
+              onLeft={handleLeftGroup}
+              onChanged={refresh}
+              showToast={showToast}
+              {...bell}
+            />
+          )}
 
-        {currentView === 'notifications' && (
-          <NotificationsView
-            notifications={inbox.notifications}
-            invites={inbox.invites}
-            onMarkAllRead={inbox.markAllRead}
-            onAcceptInvite={handleAcceptInvite}
-            onDeclineInvite={handleDeclineInvite}
-            onConfirmPayment={handleConfirmPayment}
-            onOpenGroup={(groupId) => openGroup({ id: groupId })}
-            onBack={() => go(previousView || 'dashboard')}
-          />
-        )}
+          {currentView === 'notifications' && (
+            <NotificationsView
+                invites={inbox.invites}
+              onMarkAllRead={inbox.markAllRead}
+              onAcceptInvite={handleAcceptInvite}
+              onDeclineInvite={handleDeclineInvite}
+              onConfirmPayment={handleConfirmPayment}
+              onOpenGroup={(groupId) => openGroup({ id: groupId })}
+              onBack={() => go(previousView || 'dashboard')}
+            />
+          )}
 
-        {currentView === 'invite-member' && selectedGroupId && (
-          <InviteMemberView
-            groupId={selectedGroupId}
-            onBack={backToGroup}
-            onContinue={backToGroup}
-            onChanged={refresh}
-            showToast={showToast}
-            {...bell}
-          />
-        )}
+          {currentView === 'invite-member' && selectedGroupId && (
+            <InviteMemberView
+              groupId={selectedGroupId}
+              onBack={backToGroup}
+              onContinue={backToGroup}
+              onChanged={refresh}
+              showToast={showToast}
+              {...bell}
+            />
+          )}
 
-        {currentView === 'add-expense-calculator' && expenseDraft && (
-          <AddExpenseCalculatorView
-            groups={expenseDraft.items.length ? [] : groups} // switching groups only before the first item
-            groupId={expenseDraft.groupId}
-            onChangeGroup={(groupId) => startExpense(groupId)}
-            onBack={() => {
-              if (expenseDraft.items.length) go('item-split');
-              else {
-                setExpenseDraft(null);
-                backToGroup();
-              }
-            }}
-            onContinue={handleCalculatorContinue}
-            showToast={showToast}
-            {...bell}
-          />
-        )}
+          {currentView === 'add-expense-calculator' && expenseDraft && (
+            <AddExpenseCalculatorView
+              groups={expenseDraft.items.length ? [] : groups} // switching groups only before the first item
+              groupId={expenseDraft.groupId}
+              onChangeGroup={(groupId) => startExpense(groupId)}
+              onBack={() => {
+                if (expenseDraft.items.length) go('item-split');
+                else {
+                  setExpenseDraft(null);
+                  backToGroup();
+                }
+              }}
+              onContinue={handleCalculatorContinue}
+              showToast={showToast}
+              {...bell}
+            />
+          )}
 
-        {currentView === 'item-split' && expenseDraft && (
-          <ItemizedAmbaganView
-            draft={expenseDraft}
-            onDraftChange={setExpenseDraft}
-            onBack={() => go('add-expense-calculator')}
-            onNavigateAddExpense={() => go('add-expense-calculator')}
-            onSaved={handleExpenseSaved}
-            showToast={showToast}
-            {...bell}
-          />
-        )}
+          {currentView === 'item-split' && expenseDraft && (
+            <ItemizedAmbaganView
+              draft={expenseDraft}
+              onDraftChange={setExpenseDraft}
+              onBack={() => go('add-expense-calculator')}
+              onNavigateAddExpense={() => go('add-expense-calculator')}
+              onSaved={handleExpenseSaved}
+              showToast={showToast}
+              {...bell}
+            />
+          )}
 
-        {currentView === 'expenses-detail' && selectedGroupId && (
-          <ExpensesDetailView
-            groupId={selectedGroupId}
-            refreshKey={refreshKey}
-            onBack={() => go('group-members')}
-            onAddExpense={() => startExpense(selectedGroupId)}
-            onViewSettlements={() => go('settlements')}
-            onChanged={refresh}
-            showToast={showToast}
-            {...bell}
-          />
-        )}
+          {currentView === 'expenses-detail' && selectedGroupId && (
+            <ExpensesDetailView
+              groupId={selectedGroupId}
+              refreshKey={refreshKey}
+              onBack={() => go('group-members')}
+              onAddExpense={() => startExpense(selectedGroupId)}
+              onViewSettlements={() => go('settlements')}
+              onChanged={refresh}
+              showToast={showToast}
+              {...bell}
+            />
+          )}
 
-        {currentView === 'settlements' && (
-          <SettlementsView
-            refreshKey={refreshKey}
-            onNavigatePayment={openPayment}
-            onViewGroupMembers={backToGroup}
-            onChanged={refresh}
-            showToast={showToast}
-          />
-        )}
+          {currentView === 'settlements' && (
+            <SettlementsView
+              refreshKey={refreshKey}
+              onNavigatePayment={openPayment}
+              onViewGroupMembers={backToGroup}
+              onChanged={refresh}
+              showToast={showToast}
+            />
+          )}
 
-        {currentView === 'payment' && (
-          <PaymentView
-            items={paymentItems}
-            onBack={() => go('settlements')}
-            onDone={() => {
-              refresh();
-              go('settlements');
-            }}
-            showToast={showToast}
-            {...bell}
-          />
-        )}
+          {currentView === 'payment' && (
+            <PaymentView
+              items={paymentItems}
+              onBack={() => go('settlements')}
+              onDone={() => {
+                refresh();
+                go('settlements');
+              }}
+              showToast={showToast}
+              {...bell}
+            />
+          )}
+        </Suspense>
       </main>
 
       {toast && (
@@ -472,47 +470,58 @@ function App() {
         onAuthSuccess={handleAuthSuccess}
       />
 
-      <CreateGroupModal
-        isOpen={isCreateGroupOpen}
-        currentUserName={authUser?.name}
-        onClose={() => setIsCreateGroupOpen(false)}
-        onGroupCreated={handleGroupCreated}
-      />
+      <Suspense fallback={null}>
+        {isCreateGroupOpen && (
+          <CreateGroupModal
+            isOpen={isCreateGroupOpen}
+            currentUserName={authUser?.name}
+            onClose={() => setIsCreateGroupOpen(false)}
+            onGroupCreated={handleGroupCreated}
+          />
+        )}
 
-      <PersonalBalanceModal
-        isOpen={isPersonalBalanceOpen}
-        summary={summaryQuery.data}
-        onClose={() => setIsPersonalBalanceOpen(false)}
-        onChanged={refresh}
-        showToast={showToast}
-      />
+        {isPersonalBalanceOpen && (
+          <PersonalBalanceModal
+            isOpen={isPersonalBalanceOpen}
+            summary={summaryQuery.data}
+            onClose={() => setIsPersonalBalanceOpen(false)}
+            onChanged={refresh}
+            showToast={showToast}
+          />
+        )}
 
-      <GroupDetailModal
-        groupId={selectedGroupId}
-        refreshKey={refreshKey}
-        isOpen={isGroupDetailOpen && !!selectedGroupId}
-        onClose={() => setIsGroupDetailOpen(false)}
-        onChanged={refresh}
-        onDeleted={() => {
-          setIsGroupDetailOpen(false);
-          setSelectedGroupId(null);
-          refresh();
-          go('groups');
-        }}
-        showToast={showToast}
-        onAddExpenseToGroup={() => {
-          setIsGroupDetailOpen(false);
-          startExpense(selectedGroupId);
-        }}
-      />
-      <ChooseDinoModal
-        isOpen={isChooseDinoOpen}
-        user={authUser}
-        isInitialOnboarding={isDinoOnboarding}
-        onClose={() => setIsChooseDinoOpen(false)}
-        onDinoSaved={handleDinoSaved}
-        showToast={showToast}
-      />
+        {isGroupDetailOpen && selectedGroupId && (
+          <GroupDetailModal
+            groupId={selectedGroupId}
+            refreshKey={refreshKey}
+            isOpen={isGroupDetailOpen && !!selectedGroupId}
+            onClose={() => setIsGroupDetailOpen(false)}
+            onChanged={refresh}
+            onDeleted={() => {
+              setIsGroupDetailOpen(false);
+              setSelectedGroupId(null);
+              refresh();
+              go('groups');
+            }}
+            showToast={showToast}
+            onAddExpenseToGroup={() => {
+              setIsGroupDetailOpen(false);
+              startExpense(selectedGroupId);
+            }}
+          />
+        )}
+
+        {isChooseDinoOpen && (
+          <ChooseDinoModal
+            isOpen={isChooseDinoOpen}
+            user={authUser}
+            isInitialOnboarding={isDinoOnboarding}
+            onClose={() => setIsChooseDinoOpen(false)}
+            onDinoSaved={handleDinoSaved}
+            showToast={showToast}
+          />
+        )}
+      </Suspense>
     </div>
   );
 }
