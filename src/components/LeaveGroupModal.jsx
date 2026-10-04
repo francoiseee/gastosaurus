@@ -22,18 +22,18 @@ export const LeaveGroupModal = ({
 
   return createPortal(
     <div 
-      className="modal-backdrop leave-group-backdrop animate-backdrop-fade" 
+      className="modal-backdrop animate-backdrop-fade" 
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-labelledby="leave-group-title"
     >
       <div 
-        className="leave-group-modal-card animate-scale-up" 
+        className="modal-card leave-group-modal-card animate-scale-up" 
         onClick={(e) => e.stopPropagation()}
       >
         <h2 id="leave-group-title" className="leave-group-modal-title">
-          Leave '{groupName}'?
+          Leave &lsquo;{groupName}&rsquo;?
         </h2>
 
         <p className="leave-group-modal-desc">
@@ -43,7 +43,7 @@ export const LeaveGroupModal = ({
         <div className="leave-group-modal-actions">
           <button 
             type="button" 
-            className="btn-leave-cancel" 
+            className="btn btn-outline btn-lg" 
             onClick={onClose}
             id="btn-cancel-leave-group"
           >
@@ -51,11 +51,11 @@ export const LeaveGroupModal = ({
           </button>
           <button 
             type="button" 
-            className="btn-leave-confirm" 
+            className="btn btn-danger btn-lg" 
             onClick={onConfirm}
             id="btn-confirm-leave-group"
           >
-            Confirm & Leave
+            Leave group
           </button>
         </div>
       </div>

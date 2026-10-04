@@ -1,22 +1,21 @@
 import { useEffect } from 'react';
 import mascotImg from '../assets/mascot.png';
-import { ArrowLeft } from './CustomIcons';
+import PageHeader from './PageHeader';
 import { timeAgo } from '../lib/format';
 
 // How each notification type looks on the timeline.
 const TYPE_STYLE = {
-  payment: { category: 'PAYMENT', categoryClass: 'badge-payment', nodeColorClass: 'node-green' },
+  payment: { category: 'PAYMENT RECEIVED', categoryClass: 'badge-payment', nodeColorClass: 'node-green' },
   expense: { category: 'NEW EXPENSE', categoryClass: 'badge-expense', nodeColorClass: 'node-purple' },
   reminder: { category: 'ACTION REQUIRED', categoryClass: 'badge-action', nodeColorClass: 'node-amber' },
-  invite: { category: 'INVITE', categoryClass: 'badge-action', nodeColorClass: 'node-amber' },
+  invite: { category: 'ACTION REQUIRED', categoryClass: 'badge-action', nodeColorClass: 'node-amber' },
   group: { category: 'GROUP UPDATE', categoryClass: 'badge-group', nodeColorClass: 'node-blue' },
-  welcome: { category: 'WELCOME', categoryClass: 'badge-group', nodeColorClass: 'node-blue' },
+  welcome: { category: 'GROUP UPDATE', categoryClass: 'badge-group', nodeColorClass: 'node-blue' },
 };
 
 /**
- * Timeline of notifications. Pending group invites are pinned on top with
- * Accept / Decline; "X says they paid you" items get a Confirm button.
- * Opening this screen marks everything as read.
+ * Timeline of notifications. Alternating layout with color nodes,
+ * mascot watermark, and action buttons for invites / settlement confirmations.
  */
 export const NotificationsView = ({
   notifications = [],
@@ -34,7 +33,7 @@ export const NotificationsView = ({
 
   const pendingInviteIds = new Set(invites.map((i) => i.id));
 
-  const timelineItems = [
+  const realItems = [
     ...invites.map((invite) => ({
       id: `invite-${invite.id}`,
       ...TYPE_STYLE.invite,
@@ -54,16 +53,21 @@ export const NotificationsView = ({
         time: timeAgo(n.createdAt),
         notification: n,
       })),
-  ].map((item, index) => ({ ...item, position: index % 2 === 0 ? 'right' : 'left' }));
+  ];
+
+  const timelineItems = realItems.map((item, index) => ({
+    ...item,
+    position: index % 2 === 0 ? 'right' : 'left',
+  }));
 
   const renderActions = (item) => {
     if (item.invite) {
       return (
         <div className="notif-card-actions">
-          <button type="button" className="notif-action-btn primary" onClick={() => onAcceptInvite(item.invite)}>
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => onAcceptInvite(item.invite)}>
             Accept
           </button>
-          <button type="button" className="notif-action-btn" onClick={() => onDeclineInvite(item.invite)}>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => onDeclineInvite(item.invite)}>
             Decline
           </button>
         </div>
@@ -73,7 +77,7 @@ export const NotificationsView = ({
     if (n?.data?.action === 'confirm' && n.data.settlementId) {
       return (
         <div className="notif-card-actions">
-          <button type="button" className="notif-action-btn primary" onClick={() => onConfirmPayment(n.data.settlementId)}>
+          <button type="button" className="btn btn-primary btn-sm" onClick={() => onConfirmPayment(n.data.settlementId)}>
             Confirm received
           </button>
         </div>
@@ -82,7 +86,7 @@ export const NotificationsView = ({
     if (n?.groupId && n.type !== 'invite') {
       return (
         <div className="notif-card-actions">
-          <button type="button" className="notif-action-btn" onClick={() => onOpenGroup(n.groupId)}>
+          <button type="button" className="btn btn-outline btn-sm" onClick={() => onOpenGroup(n.groupId)}>
             Open group
           </button>
         </div>
@@ -92,9 +96,10 @@ export const NotificationsView = ({
   };
 
   const renderCard = (item) => (
-    <div className="notif-bubble-card animate-fade-in">
+    <div className={`notif-bubble-card notif-card-${item.position} animate-fade-in`}>
       <div className="notif-card-tag-row">
         <span className={`notif-tag-pill ${item.categoryClass}`}>{item.category}</span>
+        <span className="notif-card-time">{item.time}</span>
       </div>
       <p className="notif-card-text">{item.text}</p>
       {item.subtext && <p className="notif-card-subtext">{item.subtext}</p>}
@@ -104,53 +109,54 @@ export const NotificationsView = ({
 
   return (
     <div className="notifications-page-container animate-fade-in">
-      <header className="notif-page-header-bar">
-        <button className="btn-header-back" onClick={onBack} aria-label="Go back" id="btn-back-from-notifications">
-          <ArrowLeft size={20} color="#1E2026" strokeWidth={2.2} />
-        </button>
-        <h2 className="notif-page-title">Notifications</h2>
-        <div className="notif-header-placeholder" aria-hidden="true" />
-      </header>
+      <PageHeader title="Notifications" onBack={onBack} backId="btn-back-from-notifications" />
 
-      <div className="notif-timeline-container">
-        <div className="notif-mascot-watermark" aria-hidden="true">
-          <img src={mascotImg} alt="" className="notif-watermark-img" />
+      {timelineItems.length === 0 && (
+        <div className="empty-state">
+          <img src={mascotImg} alt="" className="empty-state-img" />
+          <h3 className="empty-state-title">You&rsquo;re all caught up</h3>
+          <p className="empty-state-text">New expenses, payments and group invites will show up here.</p>
         </div>
+      )}
 
-        <div className="notif-vertical-line" />
+      {timelineItems.length > 0 && (
+        <div className="notif-timeline-container">
+          <div className="notif-mascot-watermark" aria-hidden="true">
+            <img src={mascotImg} alt="" className="notif-watermark-img" />
+          </div>
 
-        <div className="notif-timeline-list">
-          {timelineItems.length === 0 && (
-            <div className="notif-timeline-row row-right">
-              <div className="timeline-side side-left" />
-              <div className="timeline-center-node">
-                <div className="color-coded-circle node-blue" />
-              </div>
-              <div className="timeline-side side-right">
-                <div className="notif-bubble-card">
-                  <p className="notif-card-text">You're all caught up. 🦖</p>
+          <div className="notif-vertical-line" />
+
+          <div className="notif-timeline-list">
+            {timelineItems.map((item) => (
+              <div key={item.id} className={`notif-timeline-row notif-row-${item.position}`}>
+                <div className={`timeline-side side-left ${item.position === 'left' ? 'has-card' : ''}`}>
+                  {item.position === 'left' ? (
+                    renderCard(item)
+                  ) : (
+                    <span className="notif-timestamp-label">{item.time}</span>
+                  )}
+                </div>
+                <div className="timeline-center-node">
+                  <div className={`color-coded-circle ${item.nodeColorClass}`}>
+                    <span className="color-coded-dot" />
+                  </div>
+                </div>
+                <div className={`timeline-side side-right ${item.position === 'right' ? 'has-card' : ''}`}>
+                  {item.position === 'right' ? (
+                    renderCard(item)
+                  ) : (
+                    <span className="notif-timestamp-label">{item.time}</span>
+                  )}
                 </div>
               </div>
-            </div>
-          )}
-
-          {timelineItems.map((item) => (
-            <div key={item.id} className={`notif-timeline-row ${item.position === 'right' ? 'row-right' : 'row-left'}`}>
-              <div className="timeline-side side-left">
-                {item.position === 'left' ? renderCard(item) : <span className="notif-timestamp-label">{item.time}</span>}
-              </div>
-              <div className="timeline-center-node">
-                <div className={`color-coded-circle ${item.nodeColorClass}`} />
-              </div>
-              <div className="timeline-side side-right">
-                {item.position === 'right' ? renderCard(item) : <span className="notif-timestamp-label">{item.time}</span>}
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
 
 export default NotificationsView;
+

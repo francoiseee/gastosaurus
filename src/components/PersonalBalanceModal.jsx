@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ShoppingBag, UtensilsCrossed, Building2, Plane, Coffee, Users } from './CustomIcons';
+import { ShoppingBag, UtensilsCrossed, Building2, Plane, Coffee, Users, X } from './CustomIcons';
 import { profileApi } from '../lib/api';
 import { peso } from '../lib/format';
 
@@ -56,14 +56,14 @@ export const PersonalBalanceModal = ({ isOpen, onClose, summary, onChanged, show
           <div className="modal-title-box">
             <h3>Personal Spending Breakdown</h3>
           </div>
-          <button className="modal-close-btn" onClick={onClose}>
-            ✕
+          <button type="button" className="modal-close-btn" onClick={onClose} aria-label="Close">
+            <X size={16} />
           </button>
         </div>
 
         <div className="personal-balance-overview">
           <div className="personal-budget-stat">
-            <span className="stat-label">YOUR SHARE OF SPENDING · {monthLabel.toUpperCase()}</span>
+            <span className="eyebrow">Your share of spending · {monthLabel}</span>
             <h2 className="stat-amount">{peso(totalSpent)}</h2>
             <p className="budget-sub">
               {budget !== null
@@ -107,23 +107,24 @@ export const PersonalBalanceModal = ({ isOpen, onClose, summary, onChanged, show
           })}
         </div>
 
-        <form className="add-member-input-row" onSubmit={handleSaveBudget}>
+        <form className="input-row" onSubmit={handleSaveBudget}>
           <input
             type="number"
             min="0"
             step="0.01"
-            className="form-input member-quick-input"
+            className="form-input"
+            aria-label="Monthly budget"
             placeholder={budget !== null ? `Monthly budget (now ${peso(budget)})` : 'Set a monthly budget, e.g. 20000'}
             value={budgetInput}
             onChange={(e) => setBudgetInput(e.target.value)}
           />
-          <button type="submit" className="btn-add-member" disabled={isSaving}>
+          <button type="submit" className="btn btn-soft" disabled={isSaving}>
             {budgetInput.trim() === '' && budget !== null ? 'Remove' : 'Save'}
           </button>
         </form>
 
         <div className="modal-actions">
-          <button className="btn-primary-action" style={{ width: '100%' }} onClick={onClose}>
+          <button className="btn btn-primary btn-lg btn-block" onClick={onClose}>
             Got it
           </button>
         </div>

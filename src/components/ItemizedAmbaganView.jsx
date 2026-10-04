@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { ArrowLeft, ArrowRight, Bell, Plus, Check, CheckCircle2, Utensils, GripVertical, Inbox, X, Users, ChevronDown } from './CustomIcons';
+import { ArrowRight, Plus, Check, CheckCircle2, Utensils, GripVertical, Inbox, X, Users, ChevronDown } from './CustomIcons';
 import Avatar from './Avatar';
+import PageHeader from './PageHeader';
 import { expensesApi } from '../lib/api';
 import { peso, todayISO } from '../lib/format';
 
@@ -213,32 +214,26 @@ export const ItemizedAmbaganView = ({
 
   return (
     <div className="item-split-page-container animate-fade-in" onClick={() => setActiveReassignMenu(null)}>
-      <header className="item-split-header-bar">
-        <button className="btn-header-back" onClick={onBack} aria-label="Back to calculator" id="btn-back-to-calculator">
-          <ArrowLeft size={20} color="#1E2026" strokeWidth={2.2} />
-        </button>
-
-        <h2 className="item-split-header-title">Item Split</h2>
-
-        <div className="item-split-header-actions">
-          <button className="header-notif-btn" aria-label="Notifications" onClick={onOpenNotifications}>
-            <Bell size={20} color="#1E2026" />
-            {unreadCount > 0 && <span className="header-notif-dot" />}
-          </button>
-        </div>
-      </header>
+      <PageHeader
+        title="Item Split"
+        onBack={onBack}
+        backLabel="Back to calculator"
+        backId="btn-back-to-calculator"
+        unreadCount={unreadCount}
+        onOpenNotifications={onOpenNotifications}
+      />
 
       <div className="item-split-content-wrapper">
         {toastMessage && (
-          <div className="item-split-toast-banner animate-fade-in">
-            <CheckCircle2 size={18} color="#7C4DFF" />
+          <div className="banner banner-success item-split-toast-banner animate-fade-in">
+            <CheckCircle2 size={18} />
             <span>{toastMessage}</span>
           </div>
         )}
 
         <div className="item-split-page-header">
-          <h1 className="item-split-main-title">Itemized Ambagan</h1>
-          <p className="item-split-main-subtitle">
+          <h1 className="page-title">Itemized Ambagan</h1>
+          <p className="page-subtitle">
             {draft.description || 'New expense'} • Total: {peso(overallTotal)}
           </p>
 
@@ -498,7 +493,7 @@ export const ItemizedAmbaganView = ({
         <div className="item-split-bottom-action">
           <button
             type="button"
-            className="btn-item-split-continue"
+            className="btn btn-primary btn-lg btn-mobile-block"
             onClick={handleSave}
             disabled={isSaving}
             id="btn-item-split-continue-action"
@@ -523,8 +518,8 @@ export const ItemizedAmbaganView = ({
                   <span className="modal-sub">Divide this item evenly among selected friends</span>
                 </div>
               </div>
-              <button className="modal-close-btn" onClick={() => setSplitModal(null)}>
-                ✕
+              <button className="modal-close-btn" onClick={() => setSplitModal(null)} aria-label="Close">
+                <X size={16} />
               </button>
             </div>
 
@@ -582,11 +577,11 @@ export const ItemizedAmbaganView = ({
               </div>
             </div>
 
-            <div className="modal-actions" style={{ marginTop: '20px' }}>
-              <button type="button" className="btn-secondary" onClick={() => setSplitModal(null)}>
+            <div className="modal-actions">
+              <button type="button" className="btn btn-muted" onClick={() => setSplitModal(null)}>
                 Cancel
               </button>
-              <button type="button" className="btn-primary" onClick={confirmSplit}>
+              <button type="button" className="btn btn-primary" onClick={confirmSplit}>
                 Confirm Split
               </button>
             </div>

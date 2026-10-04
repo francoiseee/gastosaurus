@@ -1,14 +1,16 @@
-import GroupIcon from './GroupIcon';
-import { pesoParts, signedPeso, peso } from '../lib/format';
+import Avatar from './Avatar';
+import GroupCard from './GroupCard';
+import { pesoParts, peso } from '../lib/format';
 import netBalanceMascot from '../assets/net-balance-mascot.png';
 import { 
   ArrowUp, 
   ArrowDown, 
   ChevronRight, 
-  Plus
+  Plus,
 } from './CustomIcons';
 
 export const Dashboard = ({
+  authUser,
   summary,
   groups,
   isLoading,
@@ -17,6 +19,7 @@ export const Dashboard = ({
   onViewGroupClick,
   onViewAllGroups,
   onCreateGroupClick,
+  onOpenProfileModal,
 }) => {
   const net = pesoParts(summary?.netBalance ?? 0);
   const youOwe = summary?.youOwe ?? 0;
@@ -29,9 +32,28 @@ export const Dashboard = ({
   return (
     <div className="dashboard-page-container animate-fade-in">
       {/* Overview Header */}
-      <section className="overview-header-section">
-        <h1 className="overview-title">Overview</h1>
-        <p className="overview-subtitle">Here's your financial snapshot for today.</p>
+      <section className="page-intro">
+        <div className="page-intro-text">
+          <h1 className="page-title">Overview</h1>
+          <p className="page-subtitle">
+            {authUser?.name ? `Hey ${authUser.name}! Here's your financial snapshot for today.` : "Here's your financial snapshot for today."}
+          </p>
+        </div>
+        {authUser && onOpenProfileModal && (
+          <button
+            type="button"
+            className="dashboard-dino-badge-btn"
+            onClick={onOpenProfileModal}
+            title="Click to customize your Dino avatar"
+            aria-label="Customize Dino avatar"
+          >
+            <Avatar person={authUser} size={40} className="dashboard-header-avatar" />
+            <div className="dashboard-avatar-text">
+              <span className="dashboard-avatar-dino-name">Your Dino</span>
+              <span className="dashboard-avatar-change-hint">Customize ✨</span>
+            </div>
+          </button>
+        )}
       </section>
 
       {/* Top Financial Stats Cards Grid */}
@@ -39,7 +61,7 @@ export const Dashboard = ({
         {/* 1. Net Balance Main Card */}
         <div className="stat-card net-balance-card">
           <div className="net-balance-content">
-            <span className="stat-label">NET BALANCE</span>
+            <span className="eyebrow">Net balance</span>
             <div className="stat-main-amount">
               <span className="amount-sign">{net.sign}</span>
               <span className="amount-whole">{net.whole}</span>
@@ -48,14 +70,14 @@ export const Dashboard = ({
 
             <div className="net-balance-actions">
               <button 
-                className="btn-settle-up"
+                className="btn btn-primary"
                 onClick={onSettleUpClick}
                 id="btn-settle-up"
               >
                 Settle Up
               </button>
               <button 
-                className="btn-personal-balance"
+                className="btn btn-soft"
                 onClick={onPersonalBalanceClick}
                 id="btn-personal-balance"
               >
@@ -67,7 +89,7 @@ export const Dashboard = ({
           <div className="net-balance-mascot-wrapper">
             <img 
               src={netBalanceMascot} 
-              alt="Gastosaurus Net Balance Mascot" 
+              alt="" 
               className="net-balance-mascot-img"
             />
           </div>
@@ -77,12 +99,12 @@ export const Dashboard = ({
         <div className="stat-card owe-card">
           <div className="stat-card-top">
             <div className="stat-direction-badge owe-badge">
-              <ArrowUp size={16} color="#D32F2F" strokeWidth={2.5} />
+              <ArrowUp size={16} strokeWidth={2.5} />
             </div>
           </div>
           
           <div className="stat-card-mid">
-            <span className="stat-label">YOU OWE</span>
+            <span className="eyebrow">You owe</span>
             <h2 className="stat-amount amount-negative">{youOwe ? `-${peso(youOwe)}` : peso(0)}</h2>
             <span className="stat-subtext">{groupsLabel(summary?.oweGroupCount ?? 0)}</span>
           </div>
@@ -96,12 +118,12 @@ export const Dashboard = ({
         <div className="stat-card owed-card">
           <div className="stat-card-top">
             <div className="stat-direction-badge owed-badge">
-              <ArrowDown size={16} color="#7E57C2" strokeWidth={2.5} />
+              <ArrowDown size={16} strokeWidth={2.5} />
             </div>
           </div>
 
           <div className="stat-card-mid">
-            <span className="stat-label">YOU ARE OWED</span>
+            <span className="eyebrow">You are owed</span>
             <h2 className="stat-amount amount-positive">{youAreOwed ? `+${peso(youAreOwed)}` : peso(0)}</h2>
             <span className="stat-subtext">{groupsLabel(summary?.owedGroupCount ?? 0)}</span>
           </div>
@@ -117,12 +139,12 @@ export const Dashboard = ({
         <div className="section-header-row">
           <div className="section-title-wrap">
             <h2 className="section-title">Active Groups</h2>
-            <span className="section-count-badge">{groups.length} active</span>
+            <span className="count-pill">{groups.length} active</span>
           </div>
           <div className="section-actions-wrap">
             {onCreateGroupClick && (
               <button 
-                className="btn-create-group-pill"
+                className="btn btn-primary btn-sm"
                 onClick={onCreateGroupClick}
                 title="Create a new active group"
               >
@@ -130,7 +152,7 @@ export const Dashboard = ({
               </button>
             )}
             <button 
-              className="view-all-link-btn"
+              className="btn btn-ghost btn-sm"
               onClick={onViewAllGroups}
             >
               View all <ChevronRight size={16} />
@@ -139,43 +161,16 @@ export const Dashboard = ({
         </div>
 
         {!isLoading && groups.length === 0 && (
-          <p className="overview-subtitle">
+          <p className="empty-text">
             No groups yet. Create one, add your barkada, and start splitting. 🦖
           </p>
         )}
 
         {/* Groups Grid */}
         <div className="active-groups-grid">
-          {groups.slice(0, 6).map((group) => {
-            const isNegative = group.statusType === 'owe';
-            return (
-              <div 
-                key={group.id} 
-                className="group-card"
-                onClick={() => onViewGroupClick && onViewGroupClick(group)}
-              >
-                <div className="group-card-top">
-                  <div 
-                    className="group-icon-box"
-                    style={{ backgroundColor: group.iconBg || '#FFEBEF' }}
-                  >
-                    <GroupIcon iconId={group.iconId} size={40} alt={group.name} />
-                  </div>
-                  <div className="group-info">
-                    <h3 className="group-name">{group.name}</h3>
-                    <span className="group-members">{group.membersCount} members</span>
-                  </div>
-                </div>
-
-                <div className="group-card-footer">
-                  <span className="balance-label">Your Balance</span>
-                  <span className={`balance-value ${isNegative ? 'negative' : 'positive'}`}>
-                    {signedPeso(group.balance)}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
+          {groups.slice(0, 6).map((group) => (
+            <GroupCard key={group.id} group={group} onOpen={onViewGroupClick} />
+          ))}
         </div>
       </section>
     </div>

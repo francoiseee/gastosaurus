@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import mascotImg from '../assets/mascot.png';
-import { ArrowLeft, ArrowRight, Link2, Copy, ClipboardCheck, Mail, CheckCircle2, RefreshCw } from './CustomIcons';
+import { ArrowRight, Link2, Copy, ClipboardCheck, Mail, CheckCircle2, RefreshCw } from './CustomIcons';
 import { groupsApi, invitesApi, inviteLinkFor } from '../lib/api';
 import { useAsync } from '../hooks/useAsync';
+import PageHeader from './PageHeader';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export const InviteMemberView = ({ groupId, onBack, onContinue, onChanged, showToast }) => {
+export const InviteMemberView = ({ groupId, onBack, onContinue, onChanged, showToast, onOpenNotifications, unreadCount = 0 }) => {
   const [linkVersion, setLinkVersion] = useState(0);
   const { data } = useAsync(() => groupsApi.get(groupId), [groupId, linkVersion]);
   const group = data?.group;
@@ -73,17 +74,14 @@ export const InviteMemberView = ({ groupId, onBack, onContinue, onChanged, showT
 
   return (
     <div className="build-squad-page-container animate-fade-in">
-      {/* Top Back Navigation Bar */}
-      <div className="build-squad-top-nav">
-        <button 
-          className="btn-build-squad-back" 
-          onClick={onBack}
-          id="btn-back-from-squad"
-        >
-          <ArrowLeft size={18} strokeWidth={2.4} />
-          <span>Back</span>
-        </button>
-      </div>
+      <PageHeader
+        title="Invite Members"
+        subtitle={group?.name}
+        onBack={onBack}
+        backId="btn-back-from-squad"
+        unreadCount={unreadCount}
+        onOpenNotifications={onOpenNotifications}
+      />
 
       {/* Main 2-Column Grid matching Screenshot 1 */}
       <div className="build-squad-grid-wrapper">
@@ -109,8 +107,8 @@ export const InviteMemberView = ({ groupId, onBack, onContinue, onChanged, showT
         <div className="build-squad-right-col">
           {/* Toast Notification */}
           {toastMessage && (
-            <div className="squad-toast-banner animate-fade-in">
-              <CheckCircle2 size={18} color="#059669" />
+            <div className="banner banner-success squad-toast-banner animate-fade-in">
+              <CheckCircle2 size={18} />
               <span>{toastMessage}</span>
             </div>
           )}
@@ -119,7 +117,7 @@ export const InviteMemberView = ({ groupId, onBack, onContinue, onChanged, showT
           <div className="squad-action-card">
             <div className="squad-card-header">
               <div className="squad-icon-badge">
-                <Link2 size={20} color="#D94668" strokeWidth={2.4} />
+                <Link2 size={20} strokeWidth={2.4} />
               </div>
               <div className="squad-card-titles">
                 <h2 className="squad-card-title">Share Invite Link</h2>
@@ -134,12 +132,14 @@ export const InviteMemberView = ({ groupId, onBack, onContinue, onChanged, showT
                 type="text" 
                 readOnly 
                 value={inviteLink} 
+                aria-label="Invite link"
+                onFocus={(e) => e.target.select()}
                 className="squad-link-input"
                 id="squad-invite-link-field"
               />
               <button 
                 type="button" 
-                className={`btn-squad-copy ${copied ? 'copied' : ''}`}
+                className={`btn btn-muted btn-copy ${copied ? 'copied' : ''}`}
                 onClick={handleCopyLink}
                 id="btn-copy-squad-link"
               >
@@ -157,7 +157,7 @@ export const InviteMemberView = ({ groupId, onBack, onContinue, onChanged, showT
               </button>
             </div>
             {group?.myRole === 'admin' && (
-              <button type="button" className="btn-squad-copy" onClick={handleResetLink} style={{ marginTop: 10 }}>
+              <button type="button" className="btn btn-ghost btn-sm squad-reset-link" onClick={handleResetLink}>
                 <RefreshCw size={16} />
                 <span>Reset link</span>
               </button>
@@ -168,7 +168,7 @@ export const InviteMemberView = ({ groupId, onBack, onContinue, onChanged, showT
           <div className="squad-action-card">
             <div className="squad-card-header">
               <div className="squad-icon-badge">
-                <Mail size={20} color="#D94668" strokeWidth={2.4} />
+                <Mail size={20} strokeWidth={2.4} />
               </div>
               <div className="squad-card-titles">
                 <h2 className="squad-card-title">Invite via Email</h2>
@@ -196,7 +196,7 @@ export const InviteMemberView = ({ groupId, onBack, onContinue, onChanged, showT
           <div className="squad-continue-btn-wrap">
             <button 
               type="button" 
-              className="btn-squad-continue"
+              className="btn btn-primary btn-lg btn-block"
               onClick={handleContinueAction}
               disabled={isSending}
               id="btn-squad-continue-action"
