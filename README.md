@@ -1,4 +1,4 @@
-# 🦖 Gastosaurus
+# Gastosaurus
 
 [![Made with AI](https://img.shields.io/badge/Made_with-AI_assistance-blue)](AI-USAGE.md)
 
@@ -6,7 +6,9 @@ Group expense tracker with "ambagan"-style auto-splitting: add an expense, tag w
 
 - **Frontend:** React + Vite (`src/`)
 - **Auth & database:** Supabase (project `gastosaurus`)
-- **API:** Node.js + Express + PostgreSQL (`server/`)
+- **API:** Node.js + Express + PostgreSQL (`server/`), deployed as a Vercel Function (`api/`)
+
+🌐 **Live app:** https://gastosaurus-francoise.vercel.app/
 
 📐 Read the **[system architecture](docs/ARCHITECTURE.md)** first.
 
@@ -46,7 +48,7 @@ npm run dev                       # App → http://localhost:5173
 | 3. Expenses: equal, itemized and custom splitting | ✅ |
 | 4. Balances, Settle Up and payments | ✅ |
 | 5. Notifications, reminders, live updates | ✅ |
-| 6. Deploy | next |
+| 6. Deploy on Vercel ([guide](docs/DEPLOYMENT.md)) | ✅ |
 
 Every screen runs on real data. Before a release, go through **[docs/QA-CHECKLIST.md](docs/QA-CHECKLIST.md)**.
 
@@ -54,4 +56,4 @@ How the splitting works, in plain language: **[docs/HOW-THE-MONEY-WORKS.md](docs
 
 ## AI credit
 
-Built with heavy AI assistance. I wrote the React frontend with help from Google Antigravity. Claude (Claude Code, Claude Opus 5.5) wrote the backend (`server/`, `supabase/`) and connected the frontend to it. What the AI did, where it got things wrong, and which parts are ours: **[AI-USAGE.md](AI-USAGE.md)**.
+Built with heavy AI assistance. I wrote the React frontend (with some help from Google Antigravity), the Vercel deployment and the dino avatar picker. Claude (Claude Code, Claude Opus 5.5) wrote the backend (`server/`, `supabase/`), connected the frontend to it, and helped with later fixes and a cleanup pass. What the AI did, where it got things wrong, and which parts are ours: **[AI-USAGE.md](AI-USAGE.md)**.
