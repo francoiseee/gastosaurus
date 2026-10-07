@@ -125,3 +125,12 @@ export async function userIdForEmail(email, db = pool) {
   );
   return rows[0]?.id ?? null;
 }
+
+/** Remove every notification this user has about one group (used when they leave it). */
+export async function deleteForUserInGroup(userId, groupId, db = pool) {
+  const { rowCount } = await db.query('DELETE FROM public.notifications WHERE user_id = $1 AND group_id = $2', [
+    userId,
+    groupId,
+  ]);
+  return rowCount;
+}

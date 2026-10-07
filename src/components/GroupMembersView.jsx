@@ -45,8 +45,6 @@ export const GroupMembersView = ({
   onLeft,
   onChanged,
   showToast,
-  onOpenNotifications,
-  unreadCount = 0,
 }) => {
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
   const [inviteFor, setInviteFor] = useState(null); // guest member id whose invite form is open
@@ -62,8 +60,6 @@ export const GroupMembersView = ({
           title="Group"
           onBack={onBack}
           backLabel="Back to groups"
-          unreadCount={unreadCount}
-          onOpenNotifications={onOpenNotifications}
         />
         <div className="page-state">
           <p className="page-subtitle">{error ? error.message : loading ? 'Loading group…' : ''}</p>
@@ -142,8 +138,6 @@ export const GroupMembersView = ({
         onBack={onBack}
         backLabel="Back to groups"
         backId="btn-back-to-groups"
-        unreadCount={unreadCount}
-        onOpenNotifications={onOpenNotifications}
       />
 
       <div className="members-view-content">
@@ -268,7 +262,7 @@ export const GroupMembersView = ({
                 <div className="member-profile-info">
                   <div className="member-name-row">
                     <span className="profile-name">{member.name}</span>
-                    {member.isCurrentUser && <span className="badge-you-pill">YOU</span>}
+                    {member.isCurrentUser && <span className="member-you">(you)</span>}
                   </div>
                   <span className="profile-email">{member.email || 'Guest — no account yet'}</span>
                   <div className="profile-meta-row">
@@ -300,7 +294,7 @@ export const GroupMembersView = ({
               </div>
 
               <div className="member-profile-right">
-                <span className={`role-badge ${member.role === 'admin' ? 'admin' : 'member'}`}>
+                <span className={`tag-text ${member.role === 'admin' ? 'tag-pink' : 'tag-muted'}`}>
                   {member.role === 'admin' ? 'Admin' : member.isGuest ? 'Guest' : 'Member'}
                 </span>
                 {member.isGuest && !pendingInvites.some((i) => i.memberId === member.id) && (

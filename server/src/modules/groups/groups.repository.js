@@ -224,6 +224,15 @@ export async function countActiveAdmins(groupId, db = pool) {
   return rows[0].n;
 }
 
+/** How many active members still have an account (guests don't count). */
+export async function countActiveAccountMembers(groupId, db = pool) {
+  const { rows } = await db.query(
+    `SELECT count(*)::int AS n FROM public.group_members WHERE group_id = $1 AND user_id IS NOT NULL AND left_at IS NULL`,
+    [groupId],
+  );
+  return rows[0].n;
+}
+
 /** Longest-standing active member with an account (to inherit admin). */
 export async function findSuccessorAdmin(groupId, excludingMemberId, db = pool) {
   const { rows } = await db.query(

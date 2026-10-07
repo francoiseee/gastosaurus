@@ -3,12 +3,12 @@ import { Bell, LogOut } from './CustomIcons';
 import Avatar from './Avatar';
 
 const TABS = [
-  { id: 'dashboard', label: 'Dashboard' },
+  { id: 'dashboard', label: 'Home' },
   { id: 'groups', label: 'Groups' },
   { id: 'settlements', label: 'Settlements' },
 ];
 
-/** The pill switcher between the three main screens (top bar on desktop, own row on mobile). */
+/** The pill switcher between Home, Groups and Settlements (top bar on desktop, own row on mobile). */
 const TabSwitcher = ({ currentTab, onSelectTab, className = '', label }) => (
   <nav className={`nav-pill-wrapper ${className}`} aria-label={label}>
     <div className="nav-pill-track">
@@ -21,6 +21,7 @@ const TabSwitcher = ({ currentTab, onSelectTab, className = '', label }) => (
             className={`nav-pill-btn ${isActive ? 'active' : ''}`}
             onClick={() => onSelectTab(tab.id)}
             aria-current={isActive ? 'page' : undefined}
+            id={`nav-tab-${tab.id}`}
           >
             {tab.label}
           </button>
@@ -46,7 +47,7 @@ export const Navbar = ({
   return (
     <header className="gastosaurus-navbar-container">
       <div className="navbar-content">
-        <button type="button" className="navbar-brand" onClick={onNavigateHome} title="Back to the welcome page">
+        <button type="button" className="navbar-brand" onClick={onNavigateHome} title="Go home">
           <span className="mascot-avatar-wrapper">
             <img src={mascotImg} alt="" className="mascot-avatar-img" />
           </span>
@@ -60,6 +61,7 @@ export const Navbar = ({
             <button
               type="button"
               className="navbar-profile-pill"
+              id="navbar-profile-btn"
               onClick={onOpenProfileModal}
               title={`Logged in as ${currentPerson.name} · Customize your Dino avatar`}
               aria-label="Customize your Dino avatar"

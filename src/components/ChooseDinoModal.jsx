@@ -105,7 +105,7 @@ export const ChooseDinoModal = ({
         {/* Modal Header */}
         <div className="dino-picker-header">
           {isInitialOnboarding && (
-            <div className="dino-step-pill">
+            <div className="dino-step-label">
               <Sparkles size={13} className="sparkle-icon" />
               <span>Step 2 of 2 · Welcome to the Herd!</span>
             </div>
@@ -150,14 +150,7 @@ export const ChooseDinoModal = ({
               <h3 className="dino-hero-name" style={{ color: activeDino.textDark }}>
                 {activeDino.name}
               </h3>
-              <span
-                className="dino-badge-pill"
-                style={{
-                  backgroundColor: `${activeDino.accent}18`,
-                  color: activeDino.accent,
-                  borderColor: `${activeDino.accent}33`,
-                }}
-              >
+              <span className="tag-text" style={{ color: activeDino.accent }}>
                 {activeDino.badge}
               </span>
             </div>

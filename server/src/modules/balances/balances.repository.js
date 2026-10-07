@@ -25,7 +25,8 @@ export async function balancesInMyGroups(userId, db = pool) {
 
 /**
  * What the user's own shares added up to between two dates (inclusive start,
- * exclusive end), across all their groups — "personal spending".
+ * exclusive end), across the groups they are STILL in — "personal spending".
+ * Groups the user left don't count: leaving wipes that group from their stats.
  */
 export async function shareTotalBetween(userId, fromDate, toDate, db = pool) {
   const { rows } = await db.query(
@@ -33,7 +34,8 @@ export async function shareTotalBetween(userId, fromDate, toDate, db = pool) {
        FROM public.expense_shares s
        JOIN public.expenses e      ON e.id = s.expense_id
        JOIN public.group_members m ON m.id = s.member_id
-      WHERE m.user_id = $1 AND e.spent_on >= $2::date AND e.spent_on < $3::date`,
+      WHERE m.user_id = $1 AND m.left_at IS NULL
+        AND e.spent_on >= $2::date AND e.spent_on < $3::date`,
     [userId, fromDate, toDate],
   );
   return rows[0].total;
@@ -47,7 +49,8 @@ export async function shareTotalsByCategory(userId, fromDate, toDate, db = pool)
        JOIN public.expenses e      ON e.id = s.expense_id
        JOIN public.groups g        ON g.id = e.group_id
        JOIN public.group_members m ON m.id = s.member_id
-      WHERE m.user_id = $1 AND e.spent_on >= $2::date AND e.spent_on < $3::date
+      WHERE m.user_id = $1 AND m.left_at IS NULL
+        AND e.spent_on >= $2::date AND e.spent_on < $3::date
       GROUP BY g.category
       ORDER BY total DESC`,
     [userId, fromDate, toDate],

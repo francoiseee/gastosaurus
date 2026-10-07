@@ -280,7 +280,7 @@ The UI lets people add barkada **by name** before those friends have accounts. S
 - **Guest** (`user_id` null): can be split with, can pay, can be paid. Can't log in or be admin.
 - **Claiming:** an invite can point at a guest row (`group_invites.member_id`). When the invitee accepts, the guest row gets their `user_id` and keeps its whole history.
 - Expenses, shares, item assignees and settlements all reference `group_members.id`. Composite foreign keys `(group_id, member_id)` make it impossible to pay or split with someone from another group.
-- Leaving sets `left_at` and keeps the row, so old bills still show the person's name. Rejoining reactivates the same row.
+- Leaving sets `left_at` and keeps the row, so the remaining members' bills still show the person's name. On the leaver's side the group is wiped: it drops out of their groups, dashboard totals and personal spending (every month), and their notifications about it are deleted. If the last member with an account leaves, the whole group (expenses, payments, members) is deleted. Rejoining reactivates the same row.
 
 ### Money rules
 

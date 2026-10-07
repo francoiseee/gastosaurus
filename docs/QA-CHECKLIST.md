@@ -46,6 +46,10 @@ Start both servers first: `cd server && npm run dev`, then `npm run dev` at the 
 ## 6. Leaving and deleting
 - [ ] Leave a group while you still owe → you get a clear "settle up first" message.
 - [ ] Once settled, **Leave Group** works and the group disappears from your list.
+- [ ] After leaving, **Personal Balance** no longer counts that group's bills, and its notifications are gone from your inbox.
+- [ ] Leaving a group where you're the only member with an account deletes the group.
+- [ ] Every logged-in screen shows the navbar with **Home**; the logo also goes home.
+- [ ] In **Add Expenses**, **Cancel** (or Home) leaves in one tap; if items were entered it asks once before discarding.
 - [ ] Admin: **Group Details → Delete** only works when everyone is settled.
 
 ## 7. Personal balance

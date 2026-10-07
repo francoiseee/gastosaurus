@@ -358,9 +358,28 @@ test('payments: to an account they wait for confirmation; to a guest they count 
 });
 
 test('a member who has settled can leave; the group disappears from their list', async () => {
+  // Before leaving, Bea's share of the bills counts as her spending and she has notifications about the group
+  const { expenses: before } = ok(await h.call('GET', `/groups/${s.groupId}/expenses`, { token: s.bea.token }));
+  const month = String(before[0].spentOn).slice(0, 7);
+  const spentBefore = ok(await h.call('GET', `/me/summary?month=${month}`, { token: s.bea.token })).summary;
+  assert.ok(spentBefore.personalSpending > 0);
+  const inboxBefore = ok(await h.call('GET', '/notifications', { token: s.bea.token })).notifications;
+  assert.ok(inboxBefore.some((n) => n.groupId === s.groupId));
+
   assert.equal((await h.call('DELETE', `/groups/${s.groupId}/members/me`, { token: s.bea.token })).status, 204);
   assert.deepEqual(ok(await h.call('GET', '/groups', { token: s.bea.token })).groups, []);
   assert.equal((await h.call('GET', `/groups/${s.groupId}`, { token: s.bea.token })).status, 404);
+
+  // ...and afterwards the group is gone from her side entirely
+  const spentAfter = ok(await h.call('GET', `/me/summary?month=${month}`, { token: s.bea.token })).summary;
+  assert.equal(spentAfter.personalSpending, 0);
+  assert.deepEqual(spentAfter.spendingByCategory, []);
+  assert.equal(spentAfter.groupCount, 0);
+  const inboxAfter = ok(await h.call('GET', '/notifications', { token: s.bea.token })).notifications;
+  assert.ok(inboxAfter.every((n) => n.groupId !== s.groupId));
+
+  // The group itself is still there for Alex
+  assert.equal(ok(await h.call('GET', `/groups/${s.groupId}`, { token: s.alex.token })).group.id, s.groupId);
 
   // Her past expenses still show her name
   const { expenses } = ok(await h.call('GET', `/groups/${s.groupId}/expenses`, { token: s.alex.token }));
@@ -421,6 +440,37 @@ test('the last admin leaving hands admin to the longest-standing member with an 
   assert.equal((await h.call('DELETE', `/groups/${gid}/members/me`, { token: s.alex.token })).status, 204);
   const detail = ok(await h.call('GET', `/groups/${gid}`, { token: s.carlo.token }));
   assert.equal(detail.members.find((m) => m.isCurrentUser).role, 'admin'); // not Dana: guests can't be admin
+});
+
+test('when the last member with an account leaves, the whole group and its history is deleted', async () => {
+  const g = ok(await h.call('POST', '/groups', { token: s.alex.token, body: { name: 'Solo Snacks', members: [{ name: 'Fin' }] } }), 201);
+  const gid = g.group.id;
+  const [alexId, finId] = g.members.map((m) => m.id);
+  // A bill, then Alex is paid back so he's settled
+  ok(
+    await h.call('POST', `/groups/${gid}/expenses`, {
+      token: s.alex.token,
+      body: { description: 'Chips', splitType: 'equal', totalAmount: 100, memberIds: [alexId, finId] },
+    }),
+    201,
+  );
+  ok(
+    await h.call('POST', `/groups/${gid}/settlements`, {
+      token: s.alex.token,
+      body: { fromMemberId: finId, toMemberId: alexId, amount: 50, method: 'cash' },
+    }),
+    201,
+  );
+
+  assert.equal((await h.call('DELETE', `/groups/${gid}/members/me`, { token: s.alex.token })).status, 204);
+  const left = await h.pool.query(
+    `SELECT (SELECT count(*)::int FROM public.groups WHERE id = $1) AS groups,
+            (SELECT count(*)::int FROM public.expenses WHERE group_id = $1) AS expenses,
+            (SELECT count(*)::int FROM public.settlements WHERE group_id = $1) AS settlements,
+            (SELECT count(*)::int FROM public.group_members WHERE group_id = $1) AS members`,
+    [gid],
+  );
+  assert.deepEqual(left.rows[0], { groups: 0, expenses: 0, settlements: 0, members: 0 });
 });
 
 test('admins can delete a group only once everyone is settled', async () => {

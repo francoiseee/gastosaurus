@@ -5,7 +5,7 @@ export const LeaveGroupModal = ({
   isOpen, 
   onClose, 
   onConfirm, 
-  groupName = 'Paris Trip 2024' 
+  groupName = 'this group' 
 }) => {
   // Lock body scroll when modal is open
   useEffect(() => {
@@ -37,7 +37,9 @@ export const LeaveGroupModal = ({
         </h2>
 
         <p className="leave-group-modal-desc">
-          Are you sure you want to leave this group? You will no longer be able to track shared expenses or view the group's settlement history. Any outstanding balances should be settled before departing.
+          You need to be settled up first. Once you leave, this group disappears from your groups, your dashboard
+          totals and your personal spending, and its notifications are cleared from your inbox. If you&rsquo;re the last
+          member with an account, the group and all its expenses are deleted.
         </p>
 
         <div className="leave-group-modal-actions">

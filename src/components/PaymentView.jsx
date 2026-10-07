@@ -11,7 +11,7 @@ import { formatDate, todayISO, peso } from '../lib/format';
  * as a payment. Payments to someone with an account wait for them to
  * confirm; payments to guests count right away.
  */
-export const PaymentView = ({ items = [], onBack, onDone, showToast, onOpenNotifications, unreadCount = 0 }) => {
+export const PaymentView = ({ items = [], onBack, onDone, showToast }) => {
   const [selectedIds, setSelectedIds] = useState(items.map((i) => i.id));
   const [paymentMethod, setPaymentMethod] = useState('gcash'); // 'bank' | 'gcash' | 'cash'
   const [toastMessage, setToastMessage] = useState(items.length ? null : 'Nothing to pay right now. 🎉');
@@ -83,8 +83,6 @@ export const PaymentView = ({ items = [], onBack, onDone, showToast, onOpenNotif
         onBack={onBack}
         backLabel="Back to settlements"
         backId="btn-back-to-settlements"
-        unreadCount={unreadCount}
-        onOpenNotifications={onOpenNotifications}
       />
 
       {/* Main Payment Content Grid */}
@@ -150,7 +148,7 @@ export const PaymentView = ({ items = [], onBack, onDone, showToast, onOpenNotif
                       <h3 className="owed-person-name">{item.person.name}</h3>
                       <p className="owed-item-desc">{item.group.name}</p>
                       <div className="owed-tags-row">
-                        <span className="owed-category-badge travel">SETTLE UP</span>
+                        <span className="tag-text tag-purple">Settle up</span>
                         <span className="owed-item-date">{formatDate(todayISO())}</span>
                       </div>
                     </div>

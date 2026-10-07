@@ -195,10 +195,9 @@ export const GroupDetailModal = ({ groupId, refreshKey, isOpen, onClose, onChang
             </h3>
           </div>
           {group.recentExpense && (
-            <div className="group-detail-recent-chip">
-              <span className="recent-label">Latest:</span>
-              <span className="recent-val">{group.recentExpense}</span>
-            </div>
+            <p className="group-detail-recent">
+              <span className="recent-label">Latest:</span> <span className="recent-val">{group.recentExpense}</span>
+            </p>
           )}
         </div>
 

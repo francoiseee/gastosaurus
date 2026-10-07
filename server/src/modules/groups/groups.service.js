@@ -7,14 +7,22 @@
 //   • Any member can add guests and invite people. Only admins can rename the
 //     group, change roles, remove members, or delete the group.
 //   • Nobody can leave (or be removed) while they still owe or are owed money —
-//     settle up first. Departed members keep their rows so history stays intact.
+//     settle up first.
+//   • Leaving wipes the group from YOUR side: it drops out of your groups list,
+//     your dashboard totals and your personal spending (every month), and your
+//     notifications about it are deleted. The shared bills stay in the group
+//     for the people still in it — their balances depend on them — and only show
+//     your name on the bills you were part of.
 //   • If the last admin leaves, the longest-standing member with an account
 //     becomes admin.
+//   • If the last member WITH AN ACCOUNT leaves, nobody can open the group any
+//     more, so the whole group and all its history is deleted.
 import { withTransaction } from '../../db/pool.js';
 import { HttpError } from '../../utils/HttpError.js';
 import { formatPeso } from '../../lib/money.js';
 import * as profiles from '../profile/profile.repository.js';
 import * as invitesRepo from '../invites/invites.repository.js';
+import * as notificationsRepo from '../notifications/notifications.repository.js';
 import * as notify from '../notifications/notify.js';
 import { createInviteTx } from '../invites/invites.service.js';
 import { assertAdmin, assertUuid } from './membership.js';
@@ -166,13 +174,25 @@ export async function removeMember(user, member, targetId) {
 }
 
 // DELETE /api/groups/:groupId/members/me  (leave)
+// Returns { groupDeleted } so the app can say what happened.
 export async function leaveGroup(member) {
-  await withTransaction(async (db) => {
+  const groupId = member.group_id;
+  return withTransaction(async (db) => {
     await assertSettled(member.id, 'You', db);
-    if (member.role === 'admin' && (await repo.countActiveAdmins(member.group_id, db)) <= 1) {
-      const successor = await repo.findSuccessorAdmin(member.group_id, member.id, db);
+    if (member.role === 'admin' && (await repo.countActiveAdmins(groupId, db)) <= 1) {
+      const successor = await repo.findSuccessorAdmin(groupId, member.id, db);
       if (successor) await repo.updateMember(successor, { role: 'admin' }, db);
     }
     await repo.markLeft(member.id, db);
+
+    // Clear this group out of the leaver's inbox.
+    await notificationsRepo.deleteForUserInGroup(member.user_id, groupId, db);
+
+    // Nobody with an account is left to see it → delete the group and everything in it.
+    if ((await repo.countActiveAccountMembers(groupId, db)) === 0) {
+      await repo.deleteGroup(groupId, db);
+      return { groupDeleted: true };
+    }
+    return { groupDeleted: false };
   });
 }
