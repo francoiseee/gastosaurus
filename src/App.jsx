@@ -24,17 +24,20 @@ const GroupDetailModal = lazy(() => import('./components/GroupDetailModal'));
 const CreateGroupModal = lazy(() => import('./components/CreateGroupModal'));
 const ChooseDinoModal = lazy(() => import('./components/ChooseDinoModal'));
 
-// Screens that draw their own header (everything else gets the Navbar).
-const FULL_SCREEN_VIEWS = new Set([
-  'landing',
-  'group-members',
-  'invite-member',
-  'expenses-detail',
-  'payment',
-  'add-expense-calculator',
-  'item-split',
-  'notifications',
-]);
+// Which navbar tab is highlighted on each screen (inner screens belong to a tab).
+const TAB_FOR_VIEW = {
+  dashboard: 'dashboard',
+  groups: 'groups',
+  'group-members': 'groups',
+  'invite-member': 'groups',
+  'expenses-detail': 'groups',
+  'add-expense-calculator': 'groups',
+  'item-split': 'groups',
+  settlements: 'settlements',
+  payment: 'settlements',
+};
+
+const EXPENSE_FLOW_VIEWS = new Set(['add-expense-calculator', 'item-split']);
 
 const JOIN_KEY = 'gastosaurus-join-code';
 
@@ -211,7 +214,8 @@ function App() {
   };
 
   const openNotifications = () => {
-    setPreviousView(currentView);
+    if (EXPENSE_FLOW_VIEWS.has(currentView) && !discardExpense()) return;
+    if (currentView !== 'notifications') setPreviousView(EXPENSE_FLOW_VIEWS.has(currentView) ? 'dashboard' : currentView);
     go('notifications');
   };
 
@@ -245,6 +249,27 @@ function App() {
     go('item-split');
   };
 
+  const backToGroup = () => (selectedGroupId ? go('group-members') : go('groups'));
+
+  /** Leave the add-expense flow. Asks first only if items were already entered. */
+  const discardExpense = () => {
+    if (expenseDraft?.items.length && !window.confirm('Discard this expense? The items you entered will be lost.')) {
+      return false;
+    }
+    setExpenseDraft(null);
+    return true;
+  };
+
+  const cancelExpense = () => {
+    if (discardExpense()) backToGroup();
+  };
+
+  /** Navbar: Home / Groups / Settlements (and the logo, which goes Home). */
+  const navigate = (view) => {
+    if (EXPENSE_FLOW_VIEWS.has(currentView) && !discardExpense()) return;
+    go(view);
+  };
+
   const handleExpenseSaved = (expense) => {
     showToast(`Added "${expense.description}" — ₱${expense.totalAmount.toFixed(2)} 🎉`);
     setExpenseDraft(null);
@@ -254,7 +279,7 @@ function App() {
   };
 
   const handleLeftGroup = (groupName) => {
-    showToast(`You left "${groupName}".`);
+    showToast(`You left "${groupName}". It's been cleared from your groups and totals.`);
     setSelectedGroupId(null);
     refresh();
     go('groups');
@@ -297,17 +322,14 @@ function App() {
     }
   };
 
-  // Props every screen with its own header needs for the bell.
-  const bell = { unreadCount: inbox.unreadCount, onOpenNotifications: openNotifications };
-  const backToGroup = () => (selectedGroupId ? go('group-members') : go('groups'));
 
   return (
     <div className="app-container">
-      {!FULL_SCREEN_VIEWS.has(currentView) && (
+      {currentView !== 'landing' && (
         <Navbar
-          currentTab={currentView}
-          onSelectTab={go}
-          onNavigateHome={() => go('landing')}
+          currentTab={TAB_FOR_VIEW[currentView]}
+          onSelectTab={navigate}
+          onNavigateHome={() => navigate('dashboard')}
           unreadCount={inbox.unreadCount}
           onOpenNotifs={openNotifications}
           authUser={authUser}
@@ -362,13 +384,13 @@ function App() {
               onLeft={handleLeftGroup}
               onChanged={refresh}
               showToast={showToast}
-              {...bell}
             />
           )}
 
           {currentView === 'notifications' && (
             <NotificationsView
-                invites={inbox.invites}
+              notifications={inbox.notifications}
+              invites={inbox.invites}
               onMarkAllRead={inbox.markAllRead}
               onAcceptInvite={handleAcceptInvite}
               onDeclineInvite={handleDeclineInvite}
@@ -385,7 +407,6 @@ function App() {
               onContinue={backToGroup}
               onChanged={refresh}
               showToast={showToast}
-              {...bell}
             />
           )}
 
@@ -402,8 +423,8 @@ function App() {
                 }
               }}
               onContinue={handleCalculatorContinue}
+              onCancel={cancelExpense}
               showToast={showToast}
-              {...bell}
             />
           )}
 
@@ -414,8 +435,8 @@ function App() {
               onBack={() => go('add-expense-calculator')}
               onNavigateAddExpense={() => go('add-expense-calculator')}
               onSaved={handleExpenseSaved}
+              onCancel={cancelExpense}
               showToast={showToast}
-              {...bell}
             />
           )}
 
@@ -428,7 +449,6 @@ function App() {
               onViewSettlements={() => go('settlements')}
               onChanged={refresh}
               showToast={showToast}
-              {...bell}
             />
           )}
 
@@ -451,7 +471,6 @@ function App() {
                 go('settlements');
               }}
               showToast={showToast}
-              {...bell}
             />
           )}
         </Suspense>

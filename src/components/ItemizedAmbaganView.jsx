@@ -22,8 +22,7 @@ export const ItemizedAmbaganView = ({
   onBack,
   onNavigateAddExpense,
   onSaved,
-  onOpenNotifications,
-  unreadCount = 0,
+  onCancel,
 }) => {
   const [toastMessage, setToastMessage] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -216,11 +215,16 @@ export const ItemizedAmbaganView = ({
     <div className="item-split-page-container animate-fade-in" onClick={() => setActiveReassignMenu(null)}>
       <PageHeader
         title="Item Split"
+        action={
+          onCancel && (
+            <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel} id="btn-cancel-expense">
+              Cancel
+            </button>
+          )
+        }
         onBack={onBack}
         backLabel="Back to calculator"
         backId="btn-back-to-calculator"
-        unreadCount={unreadCount}
-        onOpenNotifications={onOpenNotifications}
       />
 
       <div className="item-split-content-wrapper">

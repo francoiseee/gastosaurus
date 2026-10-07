@@ -5,12 +5,12 @@ import { timeAgo } from '../lib/format';
 
 // How each notification type looks on the timeline.
 const TYPE_STYLE = {
-  payment: { category: 'PAYMENT RECEIVED', categoryClass: 'badge-payment', nodeColorClass: 'node-green' },
-  expense: { category: 'NEW EXPENSE', categoryClass: 'badge-expense', nodeColorClass: 'node-purple' },
-  reminder: { category: 'ACTION REQUIRED', categoryClass: 'badge-action', nodeColorClass: 'node-amber' },
-  invite: { category: 'ACTION REQUIRED', categoryClass: 'badge-action', nodeColorClass: 'node-amber' },
-  group: { category: 'GROUP UPDATE', categoryClass: 'badge-group', nodeColorClass: 'node-blue' },
-  welcome: { category: 'GROUP UPDATE', categoryClass: 'badge-group', nodeColorClass: 'node-blue' },
+  payment: { category: 'Payment received', categoryClass: 'tag-green', nodeColorClass: 'node-green' },
+  expense: { category: 'New expense', categoryClass: 'tag-purple', nodeColorClass: 'node-purple' },
+  reminder: { category: 'Action required', categoryClass: 'tag-amber', nodeColorClass: 'node-amber' },
+  invite: { category: 'Action required', categoryClass: 'tag-amber', nodeColorClass: 'node-amber' },
+  group: { category: 'Group update', categoryClass: 'tag-blue', nodeColorClass: 'node-blue' },
+  welcome: { category: 'Group update', categoryClass: 'tag-blue', nodeColorClass: 'node-blue' },
 };
 
 /**
@@ -98,7 +98,7 @@ export const NotificationsView = ({
   const renderCard = (item) => (
     <div className={`notif-bubble-card notif-card-${item.position} animate-fade-in`}>
       <div className="notif-card-tag-row">
-        <span className={`notif-tag-pill ${item.categoryClass}`}>{item.category}</span>
+        <span className={`tag-text ${item.categoryClass}`}>{item.category}</span>
         <span className="notif-card-time">{item.time}</span>
       </div>
       <p className="notif-card-text">{item.text}</p>

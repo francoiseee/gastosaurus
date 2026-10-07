@@ -7,7 +7,7 @@ import PageHeader from './PageHeader';
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export const InviteMemberView = ({ groupId, onBack, onContinue, onChanged, showToast, onOpenNotifications, unreadCount = 0 }) => {
+export const InviteMemberView = ({ groupId, onBack, onContinue, onChanged, showToast }) => {
   const [linkVersion, setLinkVersion] = useState(0);
   const { data } = useAsync(() => groupsApi.get(groupId), [groupId, linkVersion]);
   const group = data?.group;
@@ -79,8 +79,6 @@ export const InviteMemberView = ({ groupId, onBack, onContinue, onChanged, showT
         subtitle={group?.name}
         onBack={onBack}
         backId="btn-back-from-squad"
-        unreadCount={unreadCount}
-        onOpenNotifications={onOpenNotifications}
       />
 
       {/* Main 2-Column Grid matching Screenshot 1 */}

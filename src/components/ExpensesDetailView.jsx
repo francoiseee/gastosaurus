@@ -21,8 +21,6 @@ export const ExpensesDetailView = ({
   onViewSettlements,
   onChanged,
   showToast,
-  onOpenNotifications,
-  unreadCount = 0,
 }) => {
   const [activeFilter, setActiveFilter] = useState('all');
   const [expandedId, setExpandedId] = useState(null);
@@ -39,8 +37,6 @@ export const ExpensesDetailView = ({
           title="Expenses"
           onBack={onBack}
           backLabel="Back to group members"
-          unreadCount={unreadCount}
-          onOpenNotifications={onOpenNotifications}
         />
         <div className="page-state">
           <p className="page-subtitle">{groupQuery.error ? groupQuery.error.message : 'Loading expenses…'}</p>
@@ -90,8 +86,6 @@ export const ExpensesDetailView = ({
         onBack={onBack}
         backLabel="Back to group members"
         backId="btn-back-to-members"
-        unreadCount={unreadCount}
-        onOpenNotifications={onOpenNotifications}
       />
 
       <div className="expenses-page-content">
@@ -172,7 +166,7 @@ export const ExpensesDetailView = ({
           <div className="expenses-section-toolbar">
             <div className="toolbar-left">
               <h2 className="section-title section-title-with-count">
-                Group Expenses <span className="count-pill">{filteredExpenses.length}</span>
+                Group Expenses <span className="section-count">{filteredExpenses.length}</span>
               </h2>
             </div>
 
@@ -222,9 +216,7 @@ export const ExpensesDetailView = ({
                         <div className="expense-detailed-titles">
                           <div className="expense-title-and-badge">
                             <h3 className="expense-item-name">{exp.description}</h3>
-                            <span className={`expense-type-badge ${isItemized ? 'badge-itemized' : 'badge-equal'}`}>
-                              {exp.splitLabel}
-                            </span>
+                            <span className={`tag-text ${isItemized ? 'tag-pink' : 'tag-purple'}`}>{exp.splitLabel}</span>
                           </div>
                           <div className="expense-metadata-row">
                             <span className="exp-meta-item">
@@ -255,7 +247,7 @@ export const ExpensesDetailView = ({
                       <div className="expense-expanded-breakdown animate-fade-in">
                                                 <div className="expanded-header">
                           <h4>Itemized Breakdown & Participants</h4>
-                          <span className="split-summary-badge">
+                          <span className="split-summary-note">
                             {isItemized ? 'Pay for what you had' : `${exp.splitLabel} ÷ ${exp.peopleCount}`}
                           </span>
                         </div>
@@ -269,16 +261,12 @@ export const ExpensesDetailView = ({
                                 <div className="expanded-item-info">
                                   <span className="expanded-item-name">{item.name}</span>
                                   <div className="item-split-members-tags">
-                                    <span className="split-for-label">For:</span>
-                                    {item.memberIds.length ? (
-                                      item.memberIds.map((id) => (
-                                        <span key={id} className="member-split-pill">
-                                          {nameOf[id] ?? 'Former member'}
-                                        </span>
-                                      ))
-                                    ) : (
-                                      <span className="member-split-pill">Everyone, by what they ordered</span>
-                                    )}
+                                    <span className="split-for-label">For</span>
+                                    <span className="item-split-names">
+                                      {item.memberIds.length
+                                        ? item.memberIds.map((id) => nameOf[id] ?? 'Former member').join(', ')
+                                        : 'Everyone, by what they ordered'}
+                                    </span>
                                   </div>
                                 </div>
                                 <span className="expanded-item-price">{peso(item.price)}</span>

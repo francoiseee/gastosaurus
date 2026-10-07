@@ -122,7 +122,7 @@ export const Dashboard = ({
         <div className="section-header-row">
           <div className="section-title-wrap">
             <h2 className="section-title">Active Groups</h2>
-            <span className="count-pill">{groups.length} active</span>
+            <span className="section-count">{groups.length} active</span>
           </div>
           <div className="section-actions-wrap">
             {onCreateGroupClick && (

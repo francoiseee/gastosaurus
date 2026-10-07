@@ -78,12 +78,13 @@ const FILTERS = {
   paid: (r) => r.kind === 'paid' || r.kind === 'pending',
 };
 
+// Status as colored words with a dot (no filled capsule).
 const BADGES = {
-  owe: ['badge-owe', 'YOU OWE'],
-  owed: ['badge-owed', 'OWED TO YOU'],
-  confirm: ['badge-owed', 'CONFIRM'],
-  pending: ['badge-paid', 'PENDING'],
-  paid: ['badge-paid', 'PAID'],
+  owe: ['tag-red', 'You owe'],
+  owed: ['tag-purple', 'Owed to you'],
+  confirm: ['tag-purple', 'Confirm'],
+  pending: ['tag-muted', 'Pending'],
+  paid: ['tag-muted', 'Paid'],
 };
 
 const ACTION_LABELS = { owe: 'Pay', owed: 'Mark received', confirm: 'Confirm', pending: 'Undo', paid: 'Paid' };
@@ -157,7 +158,7 @@ export const SettlementsView = ({ refreshKey, onNavigatePayment, onViewGroupMemb
 
   const renderBadge = (row) => {
     const [cls, label] = BADGES[row.kind];
-    return <span className={`status-badge-pill ${cls}`}>{label}</span>;
+    return <span className={`tag-text ${cls}`}>{label}</span>;
   };
 
   const renderAction = (row, idPrefix) => (

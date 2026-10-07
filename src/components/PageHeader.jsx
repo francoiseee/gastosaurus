@@ -1,22 +1,14 @@
-import { ArrowLeft, Bell } from './CustomIcons';
+import { ArrowLeft } from './CustomIcons';
 
 /**
- * Sticky top bar for screens that don't show the main navbar:
- * back button · centered title (+ optional subtitle) · notifications bell.
+ * Sticky bar under the navbar on inner screens:
+ * back button · centered title (+ optional subtitle) · optional action (e.g. "Cancel").
  *
- *   <PageHeader title="Payment" onBack={goBack} unreadCount={3} onOpenNotifications={openInbox} />
+ *   <PageHeader title="Payment" onBack={goBack} backLabel="Back to settlements" />
  *
- * Leave out `onOpenNotifications` to show an empty spacer instead of the bell.
+ * The notifications bell is in the navbar, which every logged-in screen shows.
  */
-export const PageHeader = ({
-  title,
-  subtitle,
-  onBack,
-  backLabel = 'Go back',
-  backId,
-  unreadCount = 0,
-  onOpenNotifications,
-}) => (
+export const PageHeader = ({ title, subtitle, onBack, backLabel = 'Go back', backId, action }) => (
   <header className="page-header-bar">
     {onBack ? (
       <button type="button" className="icon-btn" onClick={onBack} aria-label={backLabel} title={backLabel} id={backId}>
@@ -31,20 +23,7 @@ export const PageHeader = ({
       {subtitle && <span className="page-header-subtitle">{subtitle}</span>}
     </div>
 
-    {onOpenNotifications ? (
-      <button
-        type="button"
-        className="icon-btn"
-        onClick={onOpenNotifications}
-        aria-label={unreadCount > 0 ? `Notifications (${unreadCount} unread)` : 'Notifications'}
-        title="Notifications"
-      >
-        <Bell size={20} />
-        {unreadCount > 0 && <span className="icon-btn-dot" />}
-      </button>
-    ) : (
-      <span className="page-header-spacer" aria-hidden="true" />
-    )}
+    {action ? <div className="page-header-action">{action}</div> : <span className="page-header-spacer" aria-hidden="true" />}
   </header>
 );
 

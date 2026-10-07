@@ -4,6 +4,15 @@ How the UI is put together so new screens stay consistent. Tokens live in
 `src/index.css`; shared building blocks are at the top of `src/App.css`
 ("DESIGN SYSTEM PRIMITIVES"). Component styles below that should only use tokens.
 
+## The look
+
+Pink paper background, pink plaid cards, dark-ink pill buttons, Plus Jakarta Sans and
+the dino mascots — keep all of that. The one thing we don't do: **filled capsule
+labels** (a word on a tinted rounded background, like "Split Equally", "Foodie Dino",
+"YOU", "Admin", "3 active"). A label is a word, not a button, so it's written as
+colored text with a small dot (`.tag-text`) or as plain muted text.
+Buttons and filter chips are things you click, so they keep their pill shape.
+
 ## Tokens (`src/index.css`)
 
 | Group | Tokens | Notes |
@@ -26,15 +35,24 @@ How the UI is put together so new screens stay consistent. Tokens live in
 
 Use only these three values in media queries.
 
+## Navigation
+
+- **`<Navbar>`** (`components/Navbar.jsx`) is on **every logged-in screen**. The pill switcher reads **Home · Groups · Settlements**; the logo also goes Home. Inner screens highlight their parent tab (group screens → Groups, payment → Settlements) via `TAB_FOR_VIEW` in `App.jsx`. The notifications bell lives here only.
+- **`<PageHeader>`** (`components/PageHeader.jsx`) — sticky back · centered title · optional `action` bar under the navbar on inner screens. Props: `title`, `subtitle`, `onBack`, `backLabel`, `backId`, `action`.
+- **Leaving Add Expense** is always one tap: **Cancel** in the page header, or any navbar tab, the logo or the bell. If items were already entered, the app asks once ("Discard this expense?").
+
 ## Components
 
-- **`<PageHeader>`** (`components/PageHeader.jsx`) — sticky back · title · bell bar for every screen without the navbar. Props: `title`, `subtitle`, `onBack`, `backLabel`, `unreadCount`, `onOpenNotifications`.
 - **`<GroupCard>`** (`components/GroupCard.jsx`) — the one group tile used on Dashboard and Groups.
 - **Page intro** — `.page-intro` > `.page-intro-text` (`.page-title`, `.page-subtitle`) + optional `.page-actions`.
 - **Buttons** — `.btn` + one variant: `btn-primary`, `btn-outline`, `btn-soft`, `btn-muted`, `btn-ghost`, `btn-danger`, `btn-danger-outline`, `btn-text`. Sizes: default 40px, `btn-sm` 34px, `btn-lg` 48px (rounded-rect, for the main CTA of a flow). Modifiers: `btn-block`, `btn-mobile-block` (full-width 48px on phones).
 - **Icon buttons** — `.icon-btn` (40px circle), `icon-btn-sm`, `icon-btn-ghost`, `.icon-btn-dot` for the unread dot.
-- **Chips** — `.chip-group` > `.chip` (+ `.active`), `chip-sm`. Used for every filter row.
-- **Labels** — `.eyebrow` for small uppercase labels above numbers; `.count-pill` next to section titles.
+- **Chips** — `.chip-group` > `.chip` (+ `.active`), `chip-sm`. Used for every filter row (they're buttons, so they stay pill-shaped).
+- **Labels**
+  - `.eyebrow` — small uppercase label above a number.
+  - `.section-count` — muted text after a section title ("Active Groups 3 active").
+  - `.tag-text` — a status / role / type / kind written as colored words with a small dot, **no background**. Colors: `tag-pink`, `tag-purple`, `tag-red`, `tag-green`, `tag-amber`, `tag-blue`, `tag-muted`, or set `color` inline (the dino picker uses the dino's accent). Used for split type (Split Equally / Itemized), member role (Admin / Member / Guest), settlement status, notification kind, "Settle up", the dino's badge.
+  - "(you)" after your own name is plain muted text (`.member-you`).
 - **Forms** — `.form-group`, `.form-label`, `.form-input`, `.form-select` (+ `.custom-select-wrapper`). All inputs are 44px with the same border/focus ring. `.input-row` for an input with a button.
 - **Modals** — `.modal-backdrop` > `.modal-card` > `.modal-header` (`.modal-title-box`, `.modal-close-btn`) … `.modal-actions`. Add a modifier class for width (e.g. `create-group-modal-card`).
 - **Icons** — Lucide icons re-exported from `components/CustomIcons.jsx`. Money is always shown with the peso sign from `lib/format.js` (`peso()`), never a dollar icon; use `Wallet` for money-related icons.
@@ -45,6 +63,7 @@ Use only these three values in media queries.
 1. No raw hex, px font sizes or px radii in component CSS — reach for a token.
 2. One primary (`btn-primary`) action per area; secondary actions use `btn-outline` or `btn-soft`.
 3. Cards are `--radius-lg`, `1px solid var(--border-card)`, `var(--shadow-card)`.
-4. Grids use `minmax(0, 1fr)` so long names can't push a layout wider than the screen.
-5. Check new screens at 1440, 820, 390 and 360px wide.
-6. Keep images small: icons ≤128px, dino avatars ≤256px, illustrations ≤640px, photos/patterns as WebP.
+4. Labels are never filled capsules — use `.tag-text`, `.section-count` or plain text.
+5. Grids use `minmax(0, 1fr)` so long names can't push a layout wider than the screen.
+6. Check new screens at 1440, 820, 390 and 360px wide.
+7. Keep images small: icons ≤128px, dino avatars ≤256px, illustrations ≤640px, photos/patterns as WebP.

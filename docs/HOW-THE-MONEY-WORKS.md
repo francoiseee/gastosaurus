@@ -26,7 +26,7 @@ flowchart LR
 6. **Record a payment.** If you pay someone with an account, the payment waits until they confirm they received it (they get a **Confirm received** button in their notifications). A payment to a guest, or one the receiver records with **Mark received**, counts immediately.
    - While a payment is waiting for confirmation, Settle Up stops asking you to pay that debt again.
 7. **Stay in the loop.** Everyone involved is notified when bills are added or changed and when payments arrive. **Send Reminders** nudges the people who owe you, telling each one exactly whom to pay, at most once every 12 hours.
-8. **Leave.** You can leave a group only when your balance is ₱0, so nobody can walk away from a debt. An admin can delete the group once everyone is settled.
+8. **Leave.** You can leave a group only when your balance is ₱0, so nobody can walk away from a debt. Once you leave, the group no longer counts in your personal spending or dashboard, and its notifications are cleared from your inbox. If you were the last member with an account, the group is deleted. An admin can delete the group once everyone is settled.
 
 ---
 

@@ -17,8 +17,7 @@ export const AddExpenseCalculatorView = ({
   onChangeGroup,
   onBack,
   onContinue,
-  onOpenNotifications,
-  unreadCount = 0,
+  onCancel,
 }) => {
   // Keypad display state (string representation of number)
   const [amountStr, setAmountStr] = useState('0.00');
@@ -196,10 +195,15 @@ export const AddExpenseCalculatorView = ({
     <div className="add-expense-calculator-page animate-fade-in">
       <PageHeader
         title="Add Expenses"
+        action={
+          onCancel && (
+            <button type="button" className="btn btn-ghost btn-sm" onClick={onCancel} id="btn-cancel-expense">
+              Cancel
+            </button>
+          )
+        }
         onBack={onBack}
         backId="btn-back-from-calculator"
-        unreadCount={unreadCount}
-        onOpenNotifications={onOpenNotifications}
       />
 
       {/* Main Content Area with Center Mascot Watermark */}
