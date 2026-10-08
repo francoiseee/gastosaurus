@@ -220,7 +220,6 @@ gastosaurus/
 
 ## Credits
 
-- **Team:** the Gastosaurus group, CS-402. Images (dino avatars, group icons, mascots, backgrounds) were made by our team.
 - **Font:** [Plus Jakarta Sans](https://fonts.google.com/specimen/Plus+Jakarta+Sans) via Google Fonts (SIL Open Font License).
 - **Icons:** [Lucide](https://lucide.dev/) via `lucide-react` (ISC license).
 
