@@ -29,9 +29,9 @@ Local development is unchanged: `cd server && npm run dev` plus `npm run dev` at
 | Name | Value | Secret? |
 |---|---|---|
 | `VITE_SUPABASE_URL` | `https://oieupqfsmnbcoatoicef.supabase.co` | No |
-| `VITE_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_X_GIvsZsh4xokrg_Gok9WQ_rZuW2t1X` | No |
+| `VITE_SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_…` (Supabase → Project Settings → API Keys) | No |
 | `SUPABASE_URL` | `https://oieupqfsmnbcoatoicef.supabase.co` | No |
-| `SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_X_GIvsZsh4xokrg_Gok9WQ_rZuW2t1X` | No |
+| `SUPABASE_PUBLISHABLE_KEY` | `sb_publishable_…` (Supabase → Project Settings → API Keys) | No |
 | `DATABASE_SSL` | `true` | No |
 | `DATABASE_URL` | The **Transaction pooler** string (port **6543**), see below | **YES** |
 

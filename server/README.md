@@ -12,11 +12,11 @@ cp .env.example .env
 
 Then fill in `DATABASE_URL` in `.env`:
 
-1. Open the **gastosaurus** project in [Supabase](https://supabase.com/dashboard/project/oieupqfsmnbcoatoicef) and click **Connect** at the top.
+1. Open your project in the [Supabase dashboard](https://supabase.com/dashboard) and click **Connect** at the top.
 2. Copy the **Session pooler** connection string (it works on any network and supports IPv4).
 3. Replace `[YOUR-PASSWORD]` with the database password. If you don't know it, set a new one at **Project Settings → Database → Reset database password**.
 
-`SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` are already filled in.
+Also fill in `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` from **Project Settings → API Keys** (the same values as the frontend's `.env.local`).
 
 ## Run
 
