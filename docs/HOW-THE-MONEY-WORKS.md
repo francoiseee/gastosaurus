@@ -1,6 +1,6 @@
 # How Gastosaurus works — the app flow and the ambagan algorithm
 
-This is the plain-language guide to Phase 2: what happens when a barkada uses the app, and the math behind "who owes whom". The code lives in `server/src/lib/splitting.js` (the algorithm) and `server/src/modules/*` (the API). Every example below is checked by a test in `server/test/`.
+This is the plain-language guide to what happens when a barkada uses the app, and the math behind "who owes whom". The code lives in `server/src/lib/splitting.js` (the algorithm) and `server/src/modules/*` (the API). Every example below is checked by a test in `server/test/`.
 
 ---
 
@@ -12,7 +12,7 @@ flowchart LR
   B --> C["Add expenses<br/>equal · itemized · custom"]
   C --> D["Balances update live<br/>(owe / owed / settled)"]
   D --> E["Settle Up<br/>suggested payments"]
-  E --> F["Record payment<br/>cash · GCash · Maya · bank"]
+  E --> F["Record payment<br/>GCash · bank · cash"]
   F --> G{"Receiver<br/>confirms?"}
   G -- yes --> D
   D -- "everyone at ₱0" --> H["Leave or delete<br/>the group"]

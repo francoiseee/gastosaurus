@@ -1,8 +1,8 @@
 # Gastosaurus — System Architecture
 
-Gastosaurus tracks group expenses and auto-splits them "ambagan"-style, including itemized splits where people pay only for what they ordered. This document describes how the backend is built and the plan for the remaining phases.
+Gastosaurus tracks group expenses and auto-splits them "ambagan"-style, including itemized splits where people pay only for what they ordered. This document describes how the system is built. To set it up and run it, start with the [documentation](../DOCUMENTATION.md).
 
-**Status:** Phases 1–5 are built and every screen runs on real data: accounts; groups with guest members, email invites and join links; expenses with equal, itemized and custom splitting; live balances; Settle Up; payments with confirmation; and notifications with reminders and live updates. Deployment (Phase 6) is next. For a plain-language walkthrough of the splitting math, see [HOW-THE-MONEY-WORKS.md](HOW-THE-MONEY-WORKS.md).
+**Status:** Phases 1–5 are built and every screen runs on real data: accounts; groups with guest members, email invites and join links; expenses with equal, itemized and custom splitting; live balances; Settle Up; payments with confirmation; and notifications with reminders and live updates. It is deployed on Vercel (Phase 6): https://gastosaurus-francoise.vercel.app/. For a plain-language walkthrough of the splitting math, see [HOW-THE-MONEY-WORKS.md](HOW-THE-MONEY-WORKS.md).
 
 ---
 
@@ -92,11 +92,16 @@ gastosaurus/
 │   │       ├── settlements/      record / confirm / undo payments
 │   │       └── notifications/    inbox, reminders, and notify.js (every message the app sends)
 │   └── test/                     splitting (unit), groups + notifications (end-to-end API), profile
+├── api/index.js                  Vercel Function entry point: exports the Express app
 ├── supabase/migrations/          SQL migrations, applied in filename order
+├── vercel.json                   /api/* → the function, region sin1
 └── docs/
     ├── ARCHITECTURE.md           this file
     ├── HOW-THE-MONEY-WORKS.md    app flow + splitting algorithm in plain language
-    └── QA-CHECKLIST.md           what to click through before a release, and files safe to delete
+    ├── DEPLOYMENT.md             deploying the app and API on Vercel
+    ├── DESIGN-SYSTEM.md          UI tokens, components and layout rules
+    ├── QA-CHECKLIST.md           what to click through before a release
+    └── screenshots/              screenshots used in DOCUMENTATION.md
 ```
 
 ### How the React app gets its data
@@ -106,6 +111,7 @@ gastosaurus/
 - **Notifications are live.** `useNotifications` subscribes to Supabase Realtime for the user's own `notifications` rows. When one arrives (say, a friend added an expense), the bell updates and the app refreshes.
 - **Adding an expense is a two-step draft** kept in `App.jsx`. The calculator adds one item at a time, then the item-split screen assigns items to people. Saving sends one item as an `equal` split and several as an `itemized` split; the server does the centavo math.
 - **Join links** look like `<app>/?join=<code>`. The code is kept in sessionStorage across sign-up or log-in, then `POST /api/invites/join` adds the user.
+
 ### Layers inside each API module
 
 ```
@@ -374,23 +380,18 @@ Every screen uses these through `src/lib/api.js`. The old mock data has been rem
 | **4. Balances & settlements** | `group_balances` view, Settle Up suggestions, payments with confirmation, dashboard summary, cross-group settle-up | ✅ |
 | **5. Notifications** | Notifications written by the services, reminders with cooldown, live updates with Supabase Realtime | ✅ |
 | **Screens on real data** | Every screen uses `src/lib/api.js`; mock data and unused components deleted | ✅ |
-| **6. Deploy** | Vercel + Render + Supabase production settings | Next |
+| **6. Deploy** | App and API on one Vercel project, Supabase production settings ([DEPLOYMENT.md](DEPLOYMENT.md)) | ✅ |
 
 ## 8. Running it locally
 
-1. **Frontend env:** `cp .env.example .env.local`. The Supabase URL and publishable key are already filled in.
-2. **Backend env:** `cd server && cp .env.example .env`, then paste the database connection string (see `server/README.md`).
-3. **Database:** all migrations up to `20261003050000_add_group_invite_codes.sql` are already applied on the `gastosaurus` Supabase project. When someone adds a new file to `supabase/migrations/`, run it once in SQL Editor (paste → Run), then check Advisors.
-4. Install dependencies in both folders: `npm install` at the repo root and `npm install` in `server/`.
-5. Run the API and the frontend in two terminals: `cd server && npm run dev` (API on :4000) and `npm run dev` at the root (app on :5173).
+The full step-by-step setup (what to install, every environment variable, database migrations, and the commands to run) is in the [documentation](../DOCUMENTATION.md#2-setup-and-installation), sections 2 and 3. In short: `npm install` at the root and in `server/`, copy both `.env.example` files and fill them in, run the migrations in the Supabase SQL Editor, then start `cd server && npm run dev` (API on :4000) and `npm run dev` at the root (app on :5173).
 
 ### Supabase dashboard settings (one-time, project owner)
 
 | Where | Setting | Why |
 |---|---|---|
-| Authentication → URL Configuration | **Site URL** = `http://localhost:5173`. Add `http://localhost:5173/**` to Redirect URLs (later, your Vercel URL too). | Confirmation and reset links come back to the app. |
+| Authentication → URL Configuration | **Site URL** = `http://localhost:5173`. Add `http://localhost:5173/**` to Redirect URLs, plus your Vercel URL for the live app. | Confirmation and reset links come back to the app. |
 | Authentication → Providers → Email | For class demos, turn **Confirm email** off, *or* set up custom SMTP (Authentication → Emails). | Supabase's built-in email only delivers to your own team's addresses and is heavily rate-limited, so groupmates won't get confirmation emails without SMTP. |
-| Authentication → Providers → Google | Enable it and paste the Client ID and Secret from Google Cloud Console (OAuth client, type "Web"). Authorized redirect URI: `https://oieupqfsmnbcoatoicef.supabase.co/auth/v1/callback`. | Makes "Continue with Google" work. Until then it shows a friendly "not switched on yet" message. |
 
 ---
 
