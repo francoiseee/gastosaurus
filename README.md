@@ -189,15 +189,15 @@ gastosaurus/
 
 | Landing page | Dashboard |
 |---|---|
-| ![Landing page](docs/screenshots/landing.png) | ![Dashboard with groups and balances](docs/screenshots/dashboard.png) |
+| ![Landing page](docs/Landing-page.png) | ![Dashboard with groups and balances](docs/Dashboard.png) |
 
 | Group expenses | Itemized ambagan split |
 |---|---|
-| ![A group's expenses and balances](docs/screenshots/group-expenses.png) | ![Splitting items between people](docs/screenshots/itemized-split.png) |
+| ![A group's expenses and balances](docs/Group-expenses.png) | ![Splitting items between people](docs/Itemized-split.png) |
 
 | Settlements |
 |---|
-| ![Settle up with pending payments](docs/screenshots/settlements.png) |
+| ![Settle up with pending payments](docs/Settlement.png) |
 
 ## 7. Known issues and next steps
 
